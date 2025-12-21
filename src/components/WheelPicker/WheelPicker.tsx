@@ -582,7 +582,7 @@ const PickerItem = React.memo(
         style={{ height }}
       >
         <Animated.View style={animatedStyle}>
-          <Text className={"text-base font-medium text-foreground"}>
+          <Text className={"font-medium text-foreground text-lg"}>
             {value}
           </Text>
         </Animated.View>

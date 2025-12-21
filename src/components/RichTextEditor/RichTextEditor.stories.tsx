@@ -33,8 +33,8 @@ export const Default = {
           <RichTextTitle>Neko Rich Text Editor</RichTextTitle>
           <RichEditorInput
             onChange={setValue}
-            color={"#000"}
             placeholder={"Das ist ein Placeholder"}
+            color={'#fff'}
           />
           <RichEditorToolbar alwaysVisible={false} />
 

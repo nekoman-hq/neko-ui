@@ -18,15 +18,16 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import {
-  RichEditor,
   RichToolbar,
   actions,
+  RichEditor
 } from "react-native-pell-rich-editor";
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import clsx from "clsx";
 import { useKeyboard } from "@/src/hooks/Keyboard.hook";
 import { ThemeProvider } from "../ThemeProvider/ThemeProvider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 
 const RichTextContext = createContext<RichTextEditorContext | null>(null);
 
@@ -94,13 +95,15 @@ export const RichTextTitle = ({
 }: RichTextTitleProps) => {
   return (
     <Text
-      className={clsx("text-rich-editor-title font-medium text-xl", className)}
+      className={clsx("text-rich-editor-title font-medium text-lg", className)}
       {...props}
     >
       {children}
     </Text>
   );
 };
+
+
 
 export const RichEditorInput = ({
   placeholder = "",
@@ -155,11 +158,10 @@ export const RichEditorInput = ({
           paddingVertical: 0,
           paddingHorizontal: 0,
         }}
-        className={"text-foreground"}
         editorStyle={{
-          backgroundColor: "transparent",
           color,
           placeholderColor,
+          backgroundColor: "transparent",
           contentCSSText: `
               
               ul, ol {

@@ -218,7 +218,7 @@ export const WidgetContent: React.FC<WidgetContainerProps> = ({
 
 export const WidgetText = ({ children, className }: WidgetTextProps) => {
   return (
-    <Text className={clsx("text-card-foreground text-base", className)}>
+    <Text className={clsx("text-card-foreground text-lg", className)}>
       {children}
     </Text>
   );

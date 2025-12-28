@@ -33,6 +33,11 @@ const THEME_KEY_MAP: Record<string, string> = {
 
   //Rich Text
   richEditorTitle: "--rich-editor-title",
+
+  //Checkbox
+  checkboxActive: "--checkbox-active",
+  checkboxInactive: "--checkbox-inactive",
+  checkboxIcon: "--checkbox-icon"
 };
 
 export const ThemeProvider = ({

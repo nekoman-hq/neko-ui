@@ -4,3 +4,4 @@ export * from "./SegmentedControl";
 export * from "./WheelPicker";
 export * from "./RichTextEditor";
 export * from "./Widget";
+export * from "./Checkbox";

@@ -60,7 +60,7 @@ export const Button = ({
     <AnimatedPressable
       style={animatedStyle}
       className={clsx(
-        "bg-primary p-2 px-4 w-fit flex rounded-xl",
+        "bg-primary p-2 px-4 flex rounded-xl",
         disabled && "bg-primary/70",
         className,
       )}

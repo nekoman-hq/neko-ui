@@ -9,3 +9,4 @@ export * from "./TextInput";
 export * from "./ExpandingDotFlatlist";
 export * from './Hr';
 export * from './ParallaxScrollView';
+export * from './Slider';

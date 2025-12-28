@@ -5,3 +5,5 @@ export * from "./WheelPicker";
 export * from "./RichTextEditor";
 export * from "./Widget";
 export * from "./Checkbox";
+export * from "./TextInput";
+export * from "./ExpandingDotFlatlist";

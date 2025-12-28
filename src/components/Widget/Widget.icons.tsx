@@ -1,17 +1,9 @@
 import { ChevronDown, LucideIcon } from "lucide-react-native";
 import { cssInterop } from "nativewind";
+import {useIconWithClassname} from "@/src/hooks/Lucide.hook";
 
-function iconWithClassName(icon: LucideIcon) {
-  cssInterop(icon, {
-    className: {
-      target: "style",
-      nativeStyleToProp: {
-        color: true,
-      },
-    },
-  });
-}
 
-iconWithClassName(ChevronDown);
+
+useIconWithClassname(ChevronDown);
 
 export { ChevronDown };

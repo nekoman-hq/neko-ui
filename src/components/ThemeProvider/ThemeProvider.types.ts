@@ -36,6 +36,11 @@ export interface Theme {
 
   //Rich Text
   richEditorTitle: string;
+
+  //Checkbox
+  checkboxIcon: string,
+  checkboxActive: string,
+  checkboxInactive: string
 }
 
 export interface ThemeProviderProps {

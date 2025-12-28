@@ -44,6 +44,11 @@ module.exports = {
 
         /*RichText*/
         "rich-editor-title": "rgb(var(--rich-editor-title) / <alpha-value>)",
+
+        /* Checkbox */
+        "checkbox-active": "rgb(var(--checkbox-active) / <alpha-value>)",
+        "checkbox-inactive": "rgb(var(--checkbox-inactive) / <alpha-value>)",
+        "checkbox-icon": "rgb(var(--checkbox-icon) / <alpha-value>)"
       },
     },
   },
@@ -83,6 +88,11 @@ module.exports = {
 
           /* RichTextEditor */
           "--rich-editor-title": "250 250 250",
+
+          /* Checkbox */
+          "--checkbox-active": "250 250 250",
+          "--checkbox-inactive": "27 31 55",
+          "--checkbox-icon": "16 16 20"
         },
       }),
   ],

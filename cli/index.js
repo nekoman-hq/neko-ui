@@ -6,7 +6,7 @@ const fs = require("fs/promises");
 
 const program = new Command();
 
-program.name("neko").description("CLI for my UI library").version("0.1.0");
+program.name("neko-ui").description("CLI for my UI library").version("0.1.0");
 
 program
     .command("generate <name>")

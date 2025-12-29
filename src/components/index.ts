@@ -11,3 +11,4 @@ export * from './Hr';
 export * from './ParallaxScrollView';
 export * from './Slider';
 export * from './Swipeable';
+export * from './DraggableFlatlist';

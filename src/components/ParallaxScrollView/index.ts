@@ -1,2 +1,2 @@
-export * from './ParallaxScrollView';
-export type * from './ParallaxScrollView.types';
+export * from "./ParallaxScrollView";
+export type * from "./ParallaxScrollView.types";

@@ -37,7 +37,11 @@ const THEME_KEY_MAP: Record<string, string> = {
   //Checkbox
   checkboxActive: "--checkbox-active",
   checkboxInactive: "--checkbox-inactive",
-  checkboxIcon: "--checkbox-icon"
+  checkboxIcon: "--checkbox-icon",
+
+  //ProgressBar
+  progressActive: "--progress-active",
+  progressInactive: "--progress-inactive",
 };
 
 export const ThemeProvider = ({

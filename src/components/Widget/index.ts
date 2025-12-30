@@ -1,2 +1,2 @@
-export { Widget } from './Widget';
-export type { WidgetProps } from './Widget.types';
+export { Widget } from "./Widget";
+export type { WidgetProps } from "./Widget.types";

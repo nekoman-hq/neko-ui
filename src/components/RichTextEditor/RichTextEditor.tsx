@@ -20,14 +20,13 @@ import Animated, {
 import {
   RichToolbar,
   actions,
-  RichEditor
+  RichEditor,
 } from "react-native-pell-rich-editor";
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import clsx from "clsx";
 import { useKeyboard } from "@/src/hooks/Keyboard.hook";
 import { ThemeProvider } from "../ThemeProvider/ThemeProvider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 
 const RichTextContext = createContext<RichTextEditorContext | null>(null);
 
@@ -102,8 +101,6 @@ export const RichTextTitle = ({
     </Text>
   );
 };
-
-
 
 export const RichEditorInput = ({
   placeholder = "",

@@ -1,6 +1,18 @@
 {
   "$schema": "https://unpkg.com/release-it/schema/release-it.json",
   "github": {
-    "release": true
+    "release": true,
+    "releaseName": "neko-ui@${version}"
+  },
+  "git": {
+    "commit": true,
+    "tag": true,
+    "push": true,
+    "requireCleanWorkingDir": true,
+    "changelog": "npx auto-changelog --stdout --commit-limit false -u --template https://raw.githubusercontent.com/release-it/release-it/main/templates/changelog-compact.hbs",
+    "commitMessage": "chore(release): ${version}"
+  },
+  "hooks": {
+    "after:bump": "npx auto-changelog -p"
   }
 }

@@ -1,10 +1,10 @@
 import type { Preview } from "@storybook/react-native";
 import { View } from "react-native";
-import { spyOn } from 'storybook/test';
+import { spyOn } from "storybook/test";
 
 export const beforeEach = () => {
-  spyOn(console, 'log').mockName('console.log');
-  spyOn(console, 'warn').mockName('console.warn');
+  spyOn(console, "log").mockName("console.log");
+  spyOn(console, "warn").mockName("console.warn");
 };
 
 const preview: Preview = {

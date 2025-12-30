@@ -38,9 +38,13 @@ export interface Theme {
   richEditorTitle: string;
 
   //Checkbox
-  checkboxIcon: string,
-  checkboxActive: string,
-  checkboxInactive: string
+  checkboxIcon: string;
+  checkboxActive: string;
+  checkboxInactive: string;
+
+  //ProgressBar
+  progressActive: string;
+  progressInactive: string;
 }
 
 export interface ThemeProviderProps {

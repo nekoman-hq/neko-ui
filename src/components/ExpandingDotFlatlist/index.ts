@@ -1,2 +1,2 @@
-export * from './ExpandingDotFlatlist';
-export type * from './ExpandingDotFlatlist.types';
+export * from "./ExpandingDotFlatlist";
+export type * from "./ExpandingDotFlatlist.types";

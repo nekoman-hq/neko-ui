@@ -34,7 +34,7 @@ export const Default = {
           <RichEditorInput
             onChange={setValue}
             placeholder={"Das ist ein Placeholder"}
-            color={'#fff'}
+            color={"#fff"}
           />
           <RichEditorToolbar alwaysVisible={false} />
 

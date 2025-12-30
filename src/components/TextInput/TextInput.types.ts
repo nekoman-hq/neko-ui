@@ -1,7 +1,7 @@
-import React from 'react';
-import {InputModeOptions, KeyboardTypeOptions} from "react-native";
-import {TextInput as ReactNativeTextInput} from "react-native/Libraries/Components/TextInput/TextInput";
-import {SharedValue} from "react-native-reanimated";
+import React from "react";
+import { InputModeOptions, KeyboardTypeOptions } from "react-native";
+import { TextInput as ReactNativeTextInput } from "react-native/Libraries/Components/TextInput/TextInput";
+import { SharedValue } from "react-native-reanimated";
 
 export interface TextInputProps {
   keyboardType?: KeyboardTypeOptions;
@@ -16,19 +16,18 @@ export interface TextInputProps {
   inputMode?: InputModeOptions;
   secureTextEntry?: boolean;
   maxLength?: number;
-  autoCapitalize?:"none" | "sentences" | "words" | "characters" | undefined,
-  children?: React.ReactNode
+  autoCapitalize?: "none" | "sentences" | "words" | "characters" | undefined;
+  children?: React.ReactNode;
 }
 
-
 export interface TextInputContextType {
-  animatedFontSize: SharedValue<number>,
-  animatedFontOpacity: SharedValue<number>,
+  animatedFontSize: SharedValue<number>;
+  animatedFontOpacity: SharedValue<number>;
   /*
    (labelTopSize - 2) / fontSize
    */
-  labelTopSize: number,
-  fontSize: number,
-  isDefaultEmpty: boolean,
-  inputFocused: boolean
+  labelTopSize: number;
+  fontSize: number;
+  isDefaultEmpty: boolean;
+  inputFocused: boolean;
 }

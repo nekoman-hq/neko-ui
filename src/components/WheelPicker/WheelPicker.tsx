@@ -23,7 +23,8 @@ import Animated, {
   cancelAnimation,
   useAnimatedStyle,
   clamp,
-  interpolate, useAnimatedReaction,
+  interpolate,
+  useAnimatedReaction,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import MaskedView from "@react-native-masked-view/masked-view";
@@ -32,7 +33,7 @@ import { ImpactFeedbackStyle } from "expo-haptics";
 import { debounce } from "lodash";
 import { WheelPickerProps } from "@/src";
 import { PickerItemProps } from "@/src/components/WheelPicker/WheelPicker.types";
-import {scheduleOnRN, scheduleOnUI} from "react-native-worklets";
+import { scheduleOnRN, scheduleOnUI } from "react-native-worklets";
 
 /**
  * Animation configuration for smooth transitions
@@ -97,7 +98,8 @@ export const WheelPicker = <T extends string | number>({
   const isProgrammaticScroll = useSharedValue(false);
 
   //State for the flatlist
-  const [isProgrammaticScrollState, setIsProgrammaticScrollState] = useState(false);
+  const [isProgrammaticScrollState, setIsProgrammaticScrollState] =
+    useState(false);
 
   /**
    * Indicates when user is actively scrolling manually
@@ -269,40 +271,40 @@ export const WheelPicker = <T extends string | number>({
    * - Only item B's onChange fires after its animation
    */
   const handleItemPress = useCallback(
-      (i: number) => {
-        if (i === currentIndex) return;
+    (i: number) => {
+      if (i === currentIndex) return;
 
-        clearAnimationTimeout();
+      clearAnimationTimeout();
 
-        // Check und Animation innerhalb von scheduleOnUI
-        scheduleOnUI(() => {
-          'worklet';
+      // Check und Animation innerhalb von scheduleOnUI
+      scheduleOnUI(() => {
+        "worklet";
 
-          // Jetzt können wir sicher auf .value zugreifen
-          if (isUserScrolling.value || isProgrammaticScroll.value) return;
+        // Jetzt können wir sicher auf .value zugreifen
+        if (isUserScrolling.value || isProgrammaticScroll.value) return;
 
-          cancelAnimation(targetScrollPosition);
-          isProgrammaticScroll.value = true;
+        cancelAnimation(targetScrollPosition);
+        isProgrammaticScroll.value = true;
 
-          targetScrollPosition.value = withTiming(
-              i * ItemHeight,
-              withTimingConfig,
-              () => {
-                isProgrammaticScroll.value = false;
-              },
-          );
-        });
+        targetScrollPosition.value = withTiming(
+          i * ItemHeight,
+          withTimingConfig,
+          () => {
+            isProgrammaticScroll.value = false;
+          },
+        );
+      });
 
-        // Timeout für onChange auf JS Thread
-        pendingTapIndexRef.current = i;
-        animationTimeoutRef.current = setTimeout(() => {
-          if (pendingTapIndexRef.current === i) {
-            reportValueChange(i);
-            pendingTapIndexRef.current = null;
-          }
-        }, withTimingConfig.duration + 50);
-      },
-      [data, onChange, currentIndex],
+      // Timeout für onChange auf JS Thread
+      pendingTapIndexRef.current = i;
+      animationTimeoutRef.current = setTimeout(() => {
+        if (pendingTapIndexRef.current === i) {
+          reportValueChange(i);
+          pendingTapIndexRef.current = null;
+        }
+      }, withTimingConfig.duration + 50);
+    },
+    [data, onChange, currentIndex],
   );
 
   /**
@@ -319,7 +321,7 @@ export const WheelPicker = <T extends string | number>({
    */
   const handleMomentumScrollEnd = useCallback(
     (e: any) => {
-      'worklet'
+      "worklet";
       if (isProgrammaticScroll.get()) return;
 
       const newIndex = Math.round(e.nativeEvent.contentOffset.y / ItemHeight);
@@ -383,12 +385,12 @@ export const WheelPicker = <T extends string | number>({
   }, []);
 
   useAnimatedReaction(
-      () => isProgrammaticScroll.value,
-      (current, previous) => {
-        if (current !== previous) {
-          scheduleOnRN(setIsProgrammaticScrollState, current);
-        }
-      },
+    () => isProgrammaticScroll.value,
+    (current, previous) => {
+      if (current !== previous) {
+        scheduleOnRN(setIsProgrammaticScrollState, current);
+      }
+    },
   );
 
   // ========================================
@@ -582,9 +584,7 @@ const PickerItem = React.memo(
         style={{ height }}
       >
         <Animated.View style={animatedStyle}>
-          <Text className={"font-medium text-foreground text-lg"}>
-            {value}
-          </Text>
+          <Text className={"font-medium text-foreground text-lg"}>{value}</Text>
         </Animated.View>
       </Pressable>
     );

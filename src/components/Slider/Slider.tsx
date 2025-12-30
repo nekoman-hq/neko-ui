@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import {View, StyleSheet, Dimensions, Text} from "react-native";
+import { View, StyleSheet, Dimensions, Text } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
@@ -12,10 +12,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import * as Haptics from "expo-haptics";
-import {SliderProps} from "./Slider.types";
+import { SliderProps } from "./Slider.types";
 
 const { width: screenWidth } = Dimensions.get("window");
-
 
 const DEFAULT_SPRING_CONFIG = {
   damping: 15,
@@ -24,25 +23,25 @@ const DEFAULT_SPRING_CONFIG = {
 };
 
 export const Slider: React.FC<SliderProps> = ({
-                                                       snapPoints,
-                                                       initialValue = 0,
-                                                       onValueChange,
-                                                       onSnapToPoint,
-                                                       width = screenWidth - 40,
-                                                       trackHeight = 4,
-                                                       thumbSize = 20,
-                                                       activeTrackColor = "#007AFF",
-                                                       inactiveTrackColor = "#E5E5EA",
-                                                       thumbColor = "#FFFFFF",
-                                                       thumbShadowColor = "#000000",
-                                                       snapThreshold = 0.1,
-                                                       springConfig = DEFAULT_SPRING_CONFIG,
-                                                       hapticTriggerThreshold = 0.02,
-                                                       labels = [], // Default to empty array
-                                                       activeStepIndicatorColor = activeTrackColor,
-                                                       inactiveStepIndicatorColor = inactiveTrackColor,
-                                                       onActiveChange = (v) => {},
-                                                     }) => {
+  snapPoints,
+  initialValue = 0,
+  onValueChange,
+  onSnapToPoint,
+  width = screenWidth - 40,
+  trackHeight = 4,
+  thumbSize = 20,
+  activeTrackColor = "#007AFF",
+  inactiveTrackColor = "#E5E5EA",
+  thumbColor = "#FFFFFF",
+  thumbShadowColor = "#000000",
+  snapThreshold = 0.1,
+  springConfig = DEFAULT_SPRING_CONFIG,
+  hapticTriggerThreshold = 0.02,
+  labels = [], // Default to empty array
+  activeStepIndicatorColor = activeTrackColor,
+  inactiveStepIndicatorColor = inactiveTrackColor,
+  onActiveChange = (v) => {},
+}) => {
   // Shared values
   const translateX = useSharedValue(initialValue * width);
   const isActive = useSharedValue(false);
@@ -59,32 +58,37 @@ export const Slider: React.FC<SliderProps> = ({
   });
 
   useAnimatedReaction(
-      () => currentLabelIndex.value,
-      (newIndex, oldIndex) => {
-        if (newIndex !== oldIndex && labels[newIndex]) {
-          scheduleOnRN(setLabelText, labels[newIndex]);
-        }
-      },
-      [labels],
+    () => currentLabelIndex.value,
+    (newIndex, oldIndex) => {
+      if (newIndex !== oldIndex && labels[newIndex]) {
+        scheduleOnRN(setLabelText, labels[newIndex]);
+      }
+    },
+    [labels],
   );
 
-
-  const callOnValueChange = useCallback((value: number) => {
-    if (onValueChange) {
-      onValueChange(value);
-    }
-  }, [onValueChange]);
+  const callOnValueChange = useCallback(
+    (value: number) => {
+      if (onValueChange) {
+        onValueChange(value);
+      }
+    },
+    [onValueChange],
+  );
 
   // Helper function to call onSnapToPoint
-  const callOnSnapToPoint = useCallback((index: number, value: number) => {
-    if (onSnapToPoint) {
-      onSnapToPoint(index, value);
-    }
-  }, [onSnapToPoint]);
+  const callOnSnapToPoint = useCallback(
+    (index: number, value: number) => {
+      if (onSnapToPoint) {
+        onSnapToPoint(index, value);
+      }
+    },
+    [onSnapToPoint],
+  );
 
   // Helper function to find nearest snap point
   const findNearestSnapPoint = (
-      value: number,
+    value: number,
   ): { index: number; snapValue: number } => {
     "worklet";
 
@@ -112,8 +116,8 @@ export const Slider: React.FC<SliderProps> = ({
 
   // Helper function to check if user crossed over a snap point
   const checkSnapPointCrossing = (
-      currentValue: number,
-      previousValue: number,
+    currentValue: number,
+    previousValue: number,
   ) => {
     "worklet";
 
@@ -121,9 +125,9 @@ export const Slider: React.FC<SliderProps> = ({
       const snapPoint = snapPoints[i];
 
       const crossedFromLeft =
-          previousValue < snapPoint && currentValue >= snapPoint;
+        previousValue < snapPoint && currentValue >= snapPoint;
       const crossedFromRight =
-          previousValue > snapPoint && currentValue <= snapPoint;
+        previousValue > snapPoint && currentValue <= snapPoint;
 
       if (crossedFromLeft || crossedFromRight) {
         const distanceToSnapPoint = Math.abs(currentValue - snapPoint);
@@ -153,73 +157,73 @@ export const Slider: React.FC<SliderProps> = ({
       width: thumbSize,
       overflow: "visible",
       opacity: isActive.value
-          ? interpolate(
-              translateX.value % labelStep,
-              [0, labelStep / 2, labelStep],
-              [1, 0, 1],
+        ? interpolate(
+            translateX.value % labelStep,
+            [0, labelStep / 2, labelStep],
+            [1, 0, 1],
           )
-          : withTiming(0),
+        : withTiming(0),
     }));
 
     return (
-        <Animated.View style={[{ alignItems: "center" }, animatedLabelStyle]}>
-          <View
-              style={{
-                position: "absolute",
-                width: width,
-                alignItems: "center",
-                flexDirection: "row",
-                justifyContent: "center",
-              }}
-          >
-            <Text className={"color-foreground text-base"}>{labelText}</Text>
-          </View>
-        </Animated.View>
+      <Animated.View style={[{ alignItems: "center" }, animatedLabelStyle]}>
+        <View
+          style={{
+            position: "absolute",
+            width: width,
+            alignItems: "center",
+            flexDirection: "row",
+            justifyContent: "center",
+          }}
+        >
+          <Text className={"color-foreground text-base"}>{labelText}</Text>
+        </View>
+      </Animated.View>
     );
   };
 
   // Pan gesture using modern Gesture API
   const panGesture = Gesture.Pan()
-      .hitSlop({ top: 150, bottom: 150, left: 150, right: 150 })
-      .onStart(() => {
-        startX.value = translateX.value;
-        isActive.value = true;
-        scheduleOnRN(onActiveChange, true);
+    .hitSlop({ top: 150, bottom: 150, left: 150, right: 150 })
+    .onStart(() => {
+      startX.value = translateX.value;
+      isActive.value = true;
+      scheduleOnRN(onActiveChange, true);
 
-        lastPosition.value = translateX.value / width;
-      })
-      .onUpdate((event) => {
-        const newTranslateX = startX.value + event.translationX;
+      lastPosition.value = translateX.value / width;
+    })
+    .onUpdate((event) => {
+      const newTranslateX = startX.value + event.translationX;
 
-        // Clamp between 0 and width
-        translateX.value = Math.max(0, Math.min(width, newTranslateX));
+      // Clamp between 0 and width
+      translateX.value = Math.max(0, Math.min(width, newTranslateX));
 
-        // Call onValueChange
-        const normalizedValue = translateX.value / width;
+      // Call onValueChange
+      const normalizedValue = translateX.value / width;
 
-        // Callback bei jedem Positionsupdate
-        scheduleOnRN(callOnValueChange, normalizedValue);
+      // Callback bei jedem Positionsupdate
+      scheduleOnRN(callOnValueChange, normalizedValue);
 
-        // Check for snap point crossing
-        checkSnapPointCrossing(normalizedValue, lastPosition.value);
-        lastPosition.value = normalizedValue;
-      })
-      .onEnd(() => {
-        isActive.value = false;
-        scheduleOnRN(onActiveChange, false);
+      // Check for snap point crossing
+      checkSnapPointCrossing(normalizedValue, lastPosition.value);
+      lastPosition.value = normalizedValue;
+    })
+    .onEnd(() => {
+      isActive.value = false;
+      scheduleOnRN(onActiveChange, false);
 
-        const currentValue = translateX.value / width;
-        const { index, snapValue } = findNearestSnapPoint(currentValue);
+      const currentValue = translateX.value / width;
+      const { index, snapValue } = findNearestSnapPoint(currentValue);
 
-        const distanceToSnap = Math.abs(currentValue - snapValue);
+      const distanceToSnap = Math.abs(currentValue - snapValue);
 
-        if (distanceToSnap <= snapThreshold || snapPoints.length <= 5) {
-          scheduleOnRN(callOnSnapToPoint, index, snapValue);
-          scheduleOnRN(callOnValueChange, snapValue);
+      if (distanceToSnap <= snapThreshold || snapPoints.length <= 5) {
+        scheduleOnRN(callOnSnapToPoint, index, snapValue);
+        scheduleOnRN(callOnValueChange, snapValue);
 
-          translateX.value = withSpring(snapValue * width, springConfig);
-        }
-      });
+        translateX.value = withSpring(snapValue * width, springConfig);
+      }
+    });
 
   // Animated styles for thumb
   const thumbAnimatedStyle = useAnimatedStyle(() => {
@@ -256,82 +260,82 @@ export const Slider: React.FC<SliderProps> = ({
       const isBeforeThumb = translateX.value >= position;
       return {
         backgroundColor: isBeforeThumb
-            ? activeStepIndicatorColor
-            : inactiveStepIndicatorColor,
+          ? activeStepIndicatorColor
+          : inactiveStepIndicatorColor,
       };
     });
 
     return (
-        <Animated.View
-            key={index}
-            style={[
-              styles.snapIndicator,
-              {
-                left: position - 1,
-              },
-              indicatorStyle,
-            ]}
-        />
+      <Animated.View
+        key={index}
+        style={[
+          styles.snapIndicator,
+          {
+            left: position - 1,
+          },
+          indicatorStyle,
+        ]}
+      />
     );
   });
 
   return (
-      <View style={[styles.container, { width }]}>
-        {/* Track Background */}
-        <View
-            style={[
-              styles.track,
-              {
-                height: trackHeight,
-                backgroundColor: inactiveTrackColor,
-              },
-            ]}
-        />
+    <View style={[styles.container, { width }]}>
+      {/* Track Background */}
+      <View
+        style={[
+          styles.track,
+          {
+            height: trackHeight,
+            backgroundColor: inactiveTrackColor,
+          },
+        ]}
+      />
 
-        {/* Active Track */}
+      {/* Active Track */}
+      <Animated.View
+        style={[
+          styles.activeTrack,
+          {
+            height: trackHeight,
+            backgroundColor: activeTrackColor,
+          },
+          activeTrackAnimatedStyle,
+        ]}
+      />
+
+      {/* Snap Point Indicators */}
+      {snapPointIndicators}
+
+      {renderLabels()}
+
+      {/* Thumb */}
+      <GestureDetector gesture={panGesture}>
         <Animated.View
+          style={[
+            styles.thumb,
+            {
+              width: thumbSize + 30,
+              height: thumbSize + 30,
+              justifyContent: "center",
+            },
+            thumbAnimatedStyle,
+          ]}
+        >
+          <View
             style={[
-              styles.activeTrack,
+              styles.thumb,
               {
-                height: trackHeight,
-                backgroundColor: activeTrackColor,
+                width: thumbSize,
+                height: thumbSize,
+                backgroundColor: thumbColor,
+                shadowColor: thumbShadowColor,
               },
-              activeTrackAnimatedStyle,
             ]}
-        />
-
-        {/* Snap Point Indicators */}
-        {snapPointIndicators}
-
-        {renderLabels()}
-
-        {/* Thumb */}
-        <GestureDetector gesture={panGesture}>
-          <Animated.View
-              style={[
-                styles.thumb,
-                {
-                  width: thumbSize + 30,
-                  height: thumbSize + 30,
-                  justifyContent: "center",
-                },
-                thumbAnimatedStyle,
-              ]}
-          >
-            <View
-                style={[
-                  styles.thumb,
-                  {
-                    width: thumbSize,
-                    height: thumbSize,
-                    backgroundColor: thumbColor,
-                    shadowColor: thumbShadowColor,
-                  },
-                ]}
-            ></View>
-          </Animated.View>
-        </GestureDetector>
-      </View>
+          ></View>
+        </Animated.View>
+      </GestureDetector>
+    </View>
   );
 };
 

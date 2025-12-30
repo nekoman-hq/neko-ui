@@ -1,2 +1,2 @@
-export * from './DraggableFlatlist';
-export type * from './DraggableFlatlist.types';
+export * from "./DraggableFlatlist";
+export type * from "./DraggableFlatlist.types";

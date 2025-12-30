@@ -48,7 +48,11 @@ module.exports = {
         /* Checkbox */
         "checkbox-active": "rgb(var(--checkbox-active) / <alpha-value>)",
         "checkbox-inactive": "rgb(var(--checkbox-inactive) / <alpha-value>)",
-        "checkbox-icon": "rgb(var(--checkbox-icon) / <alpha-value>)"
+        "checkbox-icon": "rgb(var(--checkbox-icon) / <alpha-value>)",
+
+        /* Progress Bar */
+        "progress-active": "rgb(var(--progress-active) / <alpha-value>)",
+        "progress-inactive": "rgb(var(--progress-inactive) / <alpha-value>)",
       },
     },
   },
@@ -92,7 +96,11 @@ module.exports = {
           /* Checkbox */
           "--checkbox-active": "250 250 250",
           "--checkbox-inactive": "27 31 55",
-          "--checkbox-icon": "16 16 20"
+          "--checkbox-icon": "16 16 20",
+
+          /* ProgressBar */
+          "--progress-active": "36 100 240",
+          "--progress-inactive": "27 31 55",
         },
       }),
   ],

@@ -174,8 +174,7 @@ export const WidgetContent: React.FC<WidgetContainerProps> = ({
     height: height.value,
     width: "100%",
     overflow: "hidden",
-    borderRadius: 15
-
+    borderRadius: 15,
   }));
 
   const viewRef = useRef<View>(null);

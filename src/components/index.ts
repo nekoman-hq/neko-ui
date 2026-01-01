@@ -13,3 +13,4 @@ export * from "./Slider";
 export * from "./Swipeable";
 export * from "./DraggableFlatlist";
 export * from "./ProgressBar";
+export * from './LineChart';

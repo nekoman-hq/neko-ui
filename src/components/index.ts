@@ -15,3 +15,4 @@ export * from "./DraggableFlatlist";
 export * from "./ProgressBar";
 export * from './LineChart';
 export * from './ProgressCircle';
+export * from './BarChart';

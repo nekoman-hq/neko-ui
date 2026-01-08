@@ -34,7 +34,7 @@ npm install neko-ui
 
 **Compound Components Pattern**
 
-All components in Neko UI are built using the compound components pattern.
+Most components in Neko UI are built using the compound components pattern.
 
 This means 
 - Complex components are composed of smaller, explicit subcomponents

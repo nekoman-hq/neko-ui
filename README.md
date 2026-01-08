@@ -16,7 +16,7 @@
 
 - Built for **React Native**
 - ✅ **NativeWind compatible**
-- 🧩 All components follow the **Compound Components Pattern**
+- 🧩 Most components follow the **Compound Components Pattern**
 - 📦 Designed to be used component-by-component
 
 ---

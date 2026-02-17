@@ -57,23 +57,23 @@ const defaultValues: SegmentContext = {
   }): void {},
 };
 
-const SegmentContext = createContext<SegmentContext>(defaultValues);
+const SegmentContext = createContext<SegmentContext<any>>(defaultValues);
 
 const useSegment = () => useContext(SegmentContext);
 
-export function SegmentedControl({
+export function SegmentedControl<T>({
   value,
   children,
   onChange,
   renderLabel,
   changeRenderLabelLayout = false,
-}: SegmentedControlProps) {
+}: SegmentedControlProps<T>) {
   const translateX = useSharedValue(0);
   const width = useSharedValue(0);
   const height = useSharedValue(100);
   const containerWidth = useSharedValue(0);
 
-  const timerRef = useRef<number | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | number | null>(null);
 
   const initialRef = useRef(true);
 
@@ -144,7 +144,7 @@ export function SegmentedControl({
     };
   }, []);
 
-  const values = useMemo<SegmentContext>(
+  const values = useMemo<SegmentContext<T>>(
     () => ({
       onLayoutPress,
       value,
@@ -211,7 +211,7 @@ export function Segment({ label }: SegmentedItemProps) {
   const [activeColor, setActiveColor] = useState(isActive);
 
   useEffect(() => {
-    let timeout: number;
+    let timeout: NodeJS.Timeout | number;
     if (isActive) {
       timeout = setTimeout(() => setActiveColor(true), 500); // Delay in ms
     } else {

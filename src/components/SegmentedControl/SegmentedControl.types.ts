@@ -1,31 +1,23 @@
 import React from "react";
 import { Theme } from "@/src/components/ThemeProvider/ThemeProvider.types";
 
-export type SegmentContext = {
+export type SegmentContext<T = string> = {
   onLayoutPress: (layout: {
     x: number;
     width: number;
     haptic?: boolean;
   }) => void;
-  value: string;
-  renderLabel?: (
-    item: string,
-    isActive: boolean,
-    color: any,
-  ) => React.ReactNode;
+  value: T;
+  renderLabel?: (item: T, isActive: boolean, color: any) => React.ReactNode;
   changeRenderLabelLayout: boolean;
-  onChange: (label: string) => void;
+  onChange: (label: T) => void;
 };
 
-export type SegmentedControlProps = {
+export type SegmentedControlProps<T> = {
   children: React.ReactNode;
-  value: string;
-  onChange: (item: string) => void;
-  renderLabel?: (
-    label: string,
-    isActive: boolean,
-    color: any,
-  ) => React.ReactNode;
+  value: T;
+  onChange: (item: T) => void;
+  renderLabel?: (label: T, isActive: boolean, color: any) => React.ReactNode;
   changeRenderLabelLayout?: boolean;
 };
 

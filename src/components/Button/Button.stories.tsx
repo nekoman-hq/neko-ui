@@ -2,6 +2,8 @@ import React from "react";
 import { Button, ButtonText } from "./Button";
 import { Alert, Text, View } from "react-native";
 import { Meta, StoryObj } from "@storybook/react-native";
+import ButtonDocs from "./Button.docs.md";
+import Markdown from "react-native-markdown-display";
 
 const meta: Meta = {
   title: "Components/Button",
@@ -19,6 +21,10 @@ const meta: Meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+export const _Docs = {
+  render: () => <Markdown>{ButtonDocs}</Markdown>,
+};
 
 export const Default: Story = {
   render: (args) => (

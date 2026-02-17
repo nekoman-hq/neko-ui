@@ -1,6 +1,5 @@
 import React from "react";
-import {Theme} from "@/src/components/ThemeProvider/ThemeProvider.types";
-
+import { Theme } from "@/src/components/ThemeProvider/ThemeProvider.types";
 
 export type SegmentContext<T = string> = {
   onLayoutPress: (layout: {
@@ -9,7 +8,7 @@ export type SegmentContext<T = string> = {
     haptic?: boolean;
   }) => void;
   value: T;
-  renderLabel?: (item: T, isActive: boolean, color: any) => React.ReactNode;
+  renderLabel?: (item: T, isActive: boolean) => React.ReactNode;
   changeRenderLabelLayout: boolean;
   onChange: (label: T) => void;
 };
@@ -18,7 +17,7 @@ export type SegmentedControlProps<T> = {
   children: React.ReactNode;
   value: T;
   onChange: (item: T) => void;
-  renderLabel?: (label: T, isActive: boolean, color: any) => React.ReactNode;
+  renderLabel?: (label: T, isActive: boolean) => React.ReactNode;
   changeRenderLabelLayout?: boolean;
 };
 

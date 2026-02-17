@@ -19,7 +19,7 @@ import type {
   SegmentedControlProps,
   SegmentedItemProps,
   SegmentThemeProviderProps,
-} from "./SegmentedControl.types";
+} from "@/src/components/SegmentedControl/SegmentedControl.types";
 import Animated, {
   Easing,
   LinearTransition,
@@ -32,7 +32,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import clsx from "clsx";
 
-import { ThemeProvider } from "../ThemeProvider/ThemeProvider";
+import { ThemeProvider } from "@/src/components/ThemeProvider";
 
 const duration = 700;
 const config = {
@@ -253,7 +253,7 @@ export function Segment({ label }: SegmentedItemProps) {
           activeColor ? "text-segment-active" : "text-segment-inactive",
         )}
       >
-        {renderLabel ? renderLabel(label, isActive, "") : label}
+        {renderLabel ? renderLabel(label, activeColor) : label}
       </Text>
     </Pressable>
   );

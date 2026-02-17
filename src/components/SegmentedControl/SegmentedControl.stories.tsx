@@ -5,6 +5,7 @@ import {
   withSegmentThemes,
 } from "./SegmentControl.decorators";
 import { Theme } from "@/src/components/ThemeProvider/ThemeProvider.types";
+import { useState } from "react";
 
 const meta: Meta = {
   title: "Components/SegmentedControl",
@@ -35,5 +36,27 @@ const themes: Partial<Theme>[] = [
 export const WithTheme: Story = {
   args: {
     themes,
+  },
+};
+
+export const WithCustomLabel: Story = {
+  render: () => {
+    const [value, setValue] = useState("1");
+
+    return (
+      <SegmentedControl
+        value={value}
+        onChange={(label) => {
+          setValue(label);
+        }}
+        renderLabel={(label) => {
+          return `Number: ${label}`;
+        }}
+      >
+        {["1", "2", "3", "4", "5"].map((n) => (
+          <Segment key={n} label={n} />
+        ))}
+      </SegmentedControl>
+    );
   },
 };

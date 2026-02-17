@@ -247,18 +247,14 @@ export function Segment({ label }: SegmentedItemProps) {
       }}
       className={"py-[5px] px-[10px]"}
     >
-      {renderLabel ? (
-        renderLabel(label, isActive, "")
-      ) : (
-        <Text
-          className={clsx(
-            "text-base font-medium",
-            activeColor ? "text-segment-active" : "text-segment-inactive",
-          )}
-        >
-          {label}
-        </Text>
-      )}
+      <Text
+        className={clsx(
+          "text-base font-medium",
+          activeColor ? "text-segment-active" : "text-segment-inactive",
+        )}
+      >
+        {renderLabel ? renderLabel(label, isActive, "") : label}
+      </Text>
     </Pressable>
   );
 

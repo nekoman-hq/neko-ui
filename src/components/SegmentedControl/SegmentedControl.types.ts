@@ -1,5 +1,6 @@
 import React from "react";
-import { Theme } from "@/src/components/ThemeProvider/ThemeProvider.types";
+import {Theme} from "@/src/components/ThemeProvider/ThemeProvider.types";
+
 
 export type SegmentContext<T = string> = {
   onLayoutPress: (layout: {

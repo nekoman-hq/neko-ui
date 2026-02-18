@@ -1,13 +1,12 @@
-import React, { useState } from "react";
-import { SharedValue, useSharedValue } from "react-native-reanimated";
+import React from "react";
+import { SharedValue } from "react-native-reanimated";
 import { Theme } from "@/src/components/ThemeProvider/ThemeProvider.types";
 
 export type WidgetContextType = {
   expanded: boolean;
   toggleExpanded: () => void;
   height: SharedValue<number>;
-  targetHeight: number;
-  setTargetHeight: React.Dispatch<React.SetStateAction<number>>;
+  targetHeight: SharedValue<number>;
   chevronRotation: SharedValue<number>;
 };
 

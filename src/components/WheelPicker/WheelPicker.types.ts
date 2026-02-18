@@ -8,6 +8,7 @@ export interface WheelPickerProps<T extends string | number> {
   onChange: (value: T, index: number) => void;
   label?: string;
   onEndReached?: () => void;
+  labelClassName?: string;
 }
 
 export interface PickerItemProps<T extends string | number> {

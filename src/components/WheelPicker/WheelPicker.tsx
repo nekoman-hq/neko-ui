@@ -31,7 +31,7 @@ import MaskedView from "@react-native-masked-view/masked-view";
 import * as Haptics from "expo-haptics";
 import { ImpactFeedbackStyle } from "expo-haptics";
 import { debounce } from "lodash";
-import { WheelPickerProps } from "@/src";
+import { WheelPickerProps } from "@/src/components/WheelPicker";
 import { PickerItemProps } from "@/src/components/WheelPicker/WheelPicker.types";
 import { scheduleOnRN, scheduleOnUI } from "react-native-worklets";
 
@@ -59,6 +59,7 @@ export const WheelPicker = <T extends string | number>({
   data,
   label,
   onEndReached,
+  labelClassName,
 }: WheelPickerProps<T>) => {
   // ========================================
   // STATE MANAGEMENT
@@ -122,7 +123,7 @@ export const WheelPicker = <T extends string | number>({
    * Stores timeout ID for delayed onChange calls after tap animations
    * Allows cancellation if user interacts before animation completes
    */
-  const animationTimeoutRef = useRef<number | null>(null);
+  const animationTimeoutRef = useRef<NodeJS.Timeout | number | null>(null);
 
   /**
    * Tracks the most recent tapped index during tap animation
@@ -398,95 +399,93 @@ export const WheelPicker = <T extends string | number>({
   // ========================================
 
   return (
-    <View>
-      <View
-        className="w-full items-center flex-row justify-center"
-        style={{ height: ItemHeight * 5 }}
-      >
-        {/* Gradient mask for fade effect on top/bottom */}
-        <MaskedView
-          maskElement={
-            <LinearGradient
-              className="w-full"
-              style={{ height: ItemHeight * 5 }}
-              colors={[
-                "rgba(0,0,0,0)", // Fully transparent at top
-                "rgba(0,0,0,0.6)", // Fade in
-                "rgba(0,0,0,1)", // Fully opaque at center
-                "rgba(0,0,0,0.6)", // Fade out
-                "rgba(0,0,0,0)", // Fully transparent at bottom
-              ]}
-              locations={[0, 0.4, 0.5, 0.6, 1]}
-            />
-          }
-        >
-          <Animated.FlatList
-            entering={FadeIn}
-            ref={flatlistRef}
-            data={data}
-            renderItem={({ index }) => (
-              <PickerItem
-                onPress={handleItemPress}
-                index={index}
-                value={data[index]}
-                height={ItemHeight}
-                positionY={scrollY}
-              />
-            )}
-            keyExtractor={(item, index) => `${index}-${item}`}
-            /* Performance optimizations */
-            initialNumToRender={10}
-            maxToRenderPerBatch={15}
-            windowSize={15}
-            initialScrollIndex={index}
-            removeClippedSubviews
-            updateCellsBatchingPeriod={50}
-            /* Layout configuration */
-            getItemLayout={(_, i) => ({
-              length: ItemHeight,
-              offset: ItemHeight * i,
-              index: i,
-            })}
-            ListHeaderComponent={<View style={{ height: ItemHeight * 2 }} />}
-            ListFooterComponent={<View style={{ height: ItemHeight * 2 }} />}
-            /* Scroll behavior */
-            showsVerticalScrollIndicator={false}
-            className="overflow-hidden self-center"
+    <View
+      className="w-full items-center flex-row justify-center"
+      style={{ height: ItemHeight * 5 }}
+    >
+      {/* Gradient mask for fade effect on top/bottom */}
+      <MaskedView
+        maskElement={
+          <LinearGradient
+            className="w-full"
             style={{ height: ItemHeight * 5 }}
-            snapToInterval={ItemHeight}
-            decelerationRate={0.9938}
-            scrollEnabled={!isProgrammaticScrollState}
-            /* Event handlers */
-            onScrollToIndexFailed={(info) => {
-              const wait = new Promise((resolve) => setTimeout(resolve, 500));
-              wait.then(() => {
-                flatlistRef.current?.scrollToIndex({
-                  index: info.index,
-                  animated: true,
-                });
-              });
-            }}
-            onScroll={scrollHandler}
-            scrollEventThrottle={16}
-            onEndReached={onEndReached}
-            onEndReachedThreshold={0.5}
-            onScrollBeginDrag={() => {
-              isUserScrolling.value = true;
-              isProgrammaticScroll.value = false;
-              clearAnimationTimeout();
-              pendingTapIndexRef.current = null;
-            }}
-            onMomentumScrollEnd={handleMomentumScrollEnd}
+            colors={[
+              "rgba(0,0,0,0)", // Fully transparent at top
+              "rgba(0,0,0,0.6)", // Fade in
+              "rgba(0,0,0,1)", // Fully opaque at center
+              "rgba(0,0,0,0.6)", // Fade out
+              "rgba(0,0,0,0)", // Fully transparent at bottom
+            ]}
+            locations={[0, 0.4, 0.5, 0.6, 1]}
           />
-        </MaskedView>
+        }
+      >
+        <Animated.FlatList
+          entering={FadeIn}
+          ref={flatlistRef}
+          data={data}
+          renderItem={({ index }) => (
+            <PickerItem
+              onPress={handleItemPress}
+              index={index}
+              value={data[index]}
+              height={ItemHeight}
+              positionY={scrollY}
+            />
+          )}
+          keyExtractor={(item, index) => `${index}-${item}`}
+          /* Performance optimizations */
+          initialNumToRender={10}
+          maxToRenderPerBatch={15}
+          windowSize={15}
+          initialScrollIndex={index}
+          removeClippedSubviews
+          updateCellsBatchingPeriod={50}
+          /* Layout configuration */
+          getItemLayout={(_, i) => ({
+            length: ItemHeight,
+            offset: ItemHeight * i,
+            index: i,
+          })}
+          ListHeaderComponent={<View style={{ height: ItemHeight * 2 }} />}
+          ListFooterComponent={<View style={{ height: ItemHeight * 2 }} />}
+          /* Scroll behavior */
+          showsVerticalScrollIndicator={false}
+          className="overflow-hidden self-center"
+          style={{ height: ItemHeight * 5 }}
+          snapToInterval={ItemHeight}
+          decelerationRate={0.9938}
+          scrollEnabled={!isProgrammaticScrollState}
+          /* Event handlers */
+          onScrollToIndexFailed={(info) => {
+            const wait = new Promise((resolve) => setTimeout(resolve, 500));
+            wait.then(() => {
+              flatlistRef.current?.scrollToIndex({
+                index: info.index,
+                animated: true,
+              });
+            });
+          }}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
+          onScrollBeginDrag={() => {
+            isUserScrolling.value = true;
+            isProgrammaticScroll.value = false;
+            clearAnimationTimeout();
+            pendingTapIndexRef.current = null;
+          }}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
+        />
+      </MaskedView>
 
-        {/* Optional label (e.g., "kg", "cm") */}
-        {label !== undefined && (
-          <Animated.View layout={LinearTransition}>
-            <Text>{label}</Text>
-          </Animated.View>
-        )}
-      </View>
+      {/* Optional label (e.g., "kg", "cm") */}
+      {label !== undefined && (
+        <Animated.View layout={LinearTransition}>
+          <Text className={labelClassName}>{label}</Text>
+        </Animated.View>
+      )}
     </View>
   );
 };

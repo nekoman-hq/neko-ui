@@ -78,7 +78,8 @@ export const WithMaxValue: Story = {
 
 export const WithDashes: Story = {
   args: {
-    dashes: 8,
+    dashes: 10,
+    dashGap: 4,
     maxValue: 200,
   },
 };

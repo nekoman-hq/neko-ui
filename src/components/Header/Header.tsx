@@ -57,7 +57,12 @@ export const HeaderProvider = ({
   );
 };
 
-export const Header = ({ children, blur, className }: HeaderProps) => {
+export const Header = ({
+  children,
+  blur,
+  className,
+  absolute = true,
+}: HeaderProps) => {
   const { initHeader, removeHeader, intensity } = useHeaderContext();
 
   const Wrapper = blur ? BlurView : View;
@@ -67,7 +72,11 @@ export const Header = ({ children, blur, className }: HeaderProps) => {
       <Wrapper
         intensity={intensity}
         tint={"dark"}
-        className={clsx("w-screen z-10", className, "!absolute !top-0")}
+        className={clsx(
+          "w-screen z-10",
+          className,
+          absolute && "!absolute !top-0",
+        )}
       >
         <SafeAreaView className={"w-full items-center justify-center"}>
           {children}

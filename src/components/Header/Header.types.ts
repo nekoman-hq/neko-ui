@@ -9,6 +9,7 @@ export interface HeaderContextProps {
 export interface HeaderProps {
   children: React.ReactNode;
   blur?: boolean;
+  absolute?: boolean;
   className?: string;
 }
 

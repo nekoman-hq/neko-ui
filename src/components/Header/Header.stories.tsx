@@ -60,6 +60,31 @@ export const Default = {
   },
 };
 
+export const NotAbsolute = {
+  render: () => {
+    const [value, setValue] = useState("");
+
+    return (
+      <ScrollView
+        className={"bg-card"}
+        contentContainerClassName={"w-screen h-screen items-center p-4"}
+      >
+        <Text className={"text-3xl color-foreground"}>
+          Header Component Demo
+        </Text>
+
+        <Header absolute={false} blur={true}>
+          <View className={"w-full py-10"}>
+            <Text className={"text-xl text-foreground"}>
+              Das ist der Header!!!
+            </Text>
+          </View>
+        </Header>
+      </ScrollView>
+    );
+  },
+};
+
 export const ExpandingContent = {
   render: () => {
     const show = useSharedValue(false);

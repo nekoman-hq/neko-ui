@@ -1,11 +1,12 @@
 import React from "react";
 import { ScrollView, Text, View } from "react-native";
-import { Header, HeaderProvider } from "@/src";
+import { Header, HeaderDestination, HeaderProvider } from "@/src";
 import { BlurView } from "expo-blur";
 
 function HeaderDemo() {
   return (
     <HeaderProvider>
+      <HeaderDestination type={"absolute"} />
       <ScrollView
         className={"bg-background"}
         contentContainerClassName={"w-screen h-screen items-center p-4"}
@@ -14,7 +15,7 @@ function HeaderDemo() {
           Header Component Demo 2
         </Text>
 
-        <Header blur={true}>
+        <Header absolute={true} destination={"absolute"} blur={true}>
           <View className={"w-full flex"}>
             <Text className={"text-xl text-foreground"}>
               Der Header ist von einer neuen Page!!

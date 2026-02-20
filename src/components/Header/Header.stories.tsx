@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Meta } from "@storybook/react-native";
-import { Header, HeaderProvider } from "./Header";
+import { Header, HeaderDestination, HeaderProvider } from "./Header";
 import { ScrollView, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
 import { Button, ButtonText } from "@/src/components/Button";
@@ -32,30 +32,33 @@ export const Default = {
     const [value, setValue] = useState("");
 
     return (
-      <ScrollView
-        className={"bg-card"}
-        contentContainerClassName={"w-screen h-screen items-center p-4"}
-      >
-        <Text className={"text-3xl color-foreground"}>
-          Header Component Demo
-        </Text>
+      <View>
+        <HeaderDestination />
+        <ScrollView
+          className={"bg-card"}
+          contentContainerClassName={"w-screen h-screen items-center p-4"}
+        >
+          <Text className={"text-3xl color-foreground"}>
+            Header Component Demo
+          </Text>
 
-        <Header blur={true}>
-          <View className={"w-full py-10"}>
-            <Text className={"text-xl text-foreground"}>
-              Das ist der Header!!!
-            </Text>
+          <Header className={"!z-10"} absolute={false} blur={true}>
+            <View className={"w-full py-10"}>
+              <Text className={"text-xl text-foreground"}>
+                Das ist der Header!!!
+              </Text>
 
-            <Button
-              onPress={() => {
-                router.push("HeaderDemo");
-              }}
-            >
-              <ButtonText>New Page</ButtonText>
-            </Button>
-          </View>
-        </Header>
-      </ScrollView>
+              <Button
+                onPress={() => {
+                  router.push("/HeaderDemo");
+                }}
+              >
+                <ButtonText>New Page</ButtonText>
+              </Button>
+            </View>
+          </Header>
+        </ScrollView>
+      </View>
     );
   },
 };

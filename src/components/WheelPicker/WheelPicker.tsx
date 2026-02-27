@@ -545,7 +545,7 @@ export const WheelPicker = <T extends string | number>({
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           initialScrollIndex={
-            normalizedData.length > 0 ? initialIndexRef.current : undefined
+            normalizedData.length > 0 ? initialIndexRef.current - 2 : undefined
           }
           /* FlashList v2 has maintainVisibleContentPosition enabled by default. */
           maintainVisibleContentPosition={{ disabled: true }}

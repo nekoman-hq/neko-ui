@@ -48,7 +48,7 @@ export const Default = {
 
 export const LargeData = {
   render: () => {
-    const [index, setIndex] = useState(1500);
+    const [index, setIndex] = useState(1600);
 
     return (
       <View className={"p-4 py-10 gap-4"}>

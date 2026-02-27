@@ -51,9 +51,7 @@ const ListEdgeSpacerHeight = ItemHeight * 2;
 const ProgrammaticScrollDuration = 300;
 const TapChangeDelay = ProgrammaticScrollDuration + 50;
 const ListEdgeSpacer = () => <View style={{ height: ListEdgeSpacerHeight }} />;
-const ReanimatedFlashList = Animated.createAnimatedComponent(
-  FlashList as React.ComponentType<any>,
-);
+const ReanimatedFlashList = Animated.createAnimatedComponent(FlashList);
 
 const clampIndex = (value: number, length: number) => {
   if (length <= 0) return 0;
@@ -542,8 +540,8 @@ export const WheelPicker = <T extends string | number>({
           entering={FadeIn}
           ref={animatedFlashListRef}
           data={normalizedData}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
+          renderItem={(item) => renderItem(item as ListRenderItemInfo<T>)}
+          keyExtractor={(item, index) => keyExtractor(item as T, index)}
           initialScrollIndex={
             normalizedData.length > 0 ? initialIndexRef.current - 2 : undefined
           }
@@ -565,6 +563,7 @@ export const WheelPicker = <T extends string | number>({
           onEndReachedThreshold={0.5}
           onScrollBeginDrag={onScrollBeginDrag}
           onMomentumScrollEnd={handleMomentumScrollEnd}
+          maxItemsInRecyclePool={5}
         />
       </MaskedView>
 

@@ -457,21 +457,38 @@ export const WheelPicker = <T extends string | number>({
   ]);
 
   const renderItem = useCallback(
-    ({ item, index }: ListRenderItemInfo<T>) => (
-      <PickerItem
-        onPress={handleItemPress}
-        index={index}
-        value={item}
-        height={ItemHeight}
-        positionY={scrollY}
-      />
-    ),
+    ({ item, index, target }: ListRenderItemInfo<T>) => {
+      if (target !== "Cell") {
+        return <View style={{ height: ItemHeight }} />;
+      }
+
+      return (
+        <PickerItem
+          onPress={handleItemPress}
+          index={index}
+          value={item}
+          height={ItemHeight}
+          positionY={scrollY}
+        />
+      );
+    },
     [handleItemPress, scrollY],
   );
 
   const keyExtractor = useCallback(
     (item: T, itemIndex: number) => `${itemIndex}-${item}`,
     [],
+  );
+
+  const flashListRenderItem = useCallback(
+    (itemInfo: ListRenderItemInfo<unknown>) =>
+      renderItem(itemInfo as ListRenderItemInfo<T>),
+    [renderItem],
+  );
+
+  const flashListKeyExtractor = useCallback(
+    (item: unknown, itemIndex: number) => keyExtractor(item as T, itemIndex),
+    [keyExtractor],
   );
 
   const flashListWidth = useMemo<ViewStyle["width"]>(
@@ -540,8 +557,8 @@ export const WheelPicker = <T extends string | number>({
           entering={FadeIn}
           ref={animatedFlashListRef}
           data={normalizedData}
-          renderItem={(item) => renderItem(item as ListRenderItemInfo<T>)}
-          keyExtractor={(item, index) => keyExtractor(item as T, index)}
+          renderItem={flashListRenderItem}
+          keyExtractor={flashListKeyExtractor}
           initialScrollIndex={
             normalizedData.length > 0 ? initialIndexRef.current - 2 : undefined
           }
@@ -563,7 +580,6 @@ export const WheelPicker = <T extends string | number>({
           onEndReachedThreshold={0.5}
           onScrollBeginDrag={onScrollBeginDrag}
           onMomentumScrollEnd={handleMomentumScrollEnd}
-          maxItemsInRecyclePool={5}
         />
       </MaskedView>
 
@@ -592,84 +608,82 @@ export const WheelPicker = <T extends string | number>({
  * - Items below: positive rotation (bottom tilts back)
  * - Padding adjusts to maintain visual alignment during rotation
  */
-const PickerItem = React.memo(
-  <T extends string | number>({
-    index,
-    value,
-    height,
-    positionY,
-    onPress,
-  }: PickerItemProps<T>) => {
-    const centerOffset = height * 2.5;
-    const centerY = index * height + centerOffset;
-    const maxDistanceFromCenter = height * 3;
-    const interpolationInput = [
-      centerY - height * 2,
-      centerY - height * 0.67,
-      centerY + height * 0.67,
-      centerY + height * 2,
-    ];
+const PickerItem = <T extends string | number>({
+  index,
+  value,
+  height,
+  positionY,
+  onPress,
+}: PickerItemProps<T>) => {
+  const centerOffset = height * 2.5;
+  const centerY = index * height + centerOffset;
+  const maxDistanceFromCenter = height * 3;
+  const interpolationInput = [
+    centerY - height * 2,
+    centerY - height * 0.67,
+    centerY + height * 0.67,
+    centerY + height * 2,
+  ];
 
-    /**
-     * Handle tap on this item
-     * Provides medium haptic feedback for tactile response
-     */
-    const handlePress = useCallback(() => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).then();
-      onPress(index);
-    }, [index, onPress]);
+  /**
+   * Handle tap on this item
+   * Provides medium haptic feedback for tactile response
+   */
+  const handlePress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).then();
+    onPress(index);
+  }, [index, onPress]);
 
-    /**
-     * Animated style that creates 3D wheel effect
-     * Recalculates on every scroll position change
-     *
-     * Calculations:
-     * 1. centerY: Absolute Y position of this item's center
-     * 2. distanceFromCenter: How far this item is from viewport center
-     * 3. deg: Rotation angle (-50° to +50°) based on distance
-     * 4. innerH: Height after rotation (cos projection)
-     * 5. paddingTop/Bottom: Compensate for height loss to maintain spacing
-     *
-     * Performance optimization:
-     * - Early bailout for items far from view (distanceFromCenter > 3*height)
-     * - Returns simple style to avoid expensive calculations
-     */
-    const animatedStyle = useAnimatedStyle(() => {
-      const raw = positionY.value + centerOffset;
-      const distanceFromCenter = Math.abs(raw - centerY);
+  /**
+   * Animated style that creates 3D wheel effect
+   * Recalculates on every scroll position change
+   *
+   * Calculations:
+   * 1. centerY: Absolute Y position of this item's center
+   * 2. distanceFromCenter: How far this item is from viewport center
+   * 3. deg: Rotation angle (-50° to +50°) based on distance
+   * 4. innerH: Height after rotation (cos projection)
+   * 5. paddingTop/Bottom: Compensate for height loss to maintain spacing
+   *
+   * Performance optimization:
+   * - Early bailout for items far from view (distanceFromCenter > 3*height)
+   * - Returns simple style to avoid expensive calculations
+   */
+  const animatedStyle = useAnimatedStyle(() => {
+    const raw = positionY.value + centerOffset;
+    const distanceFromCenter = Math.abs(raw - centerY);
 
-      if (distanceFromCenter > maxDistanceFromCenter) {
-        return { opacity: 1 };
-      }
+    if (distanceFromCenter > maxDistanceFromCenter) {
+      return { opacity: 1 };
+    }
 
-      const deg = clamp(
-        interpolate(raw, interpolationInput, [-50, -30, 30, 50]),
-        -50,
-        50,
-      );
-
-      const innerH = Math.cos((deg * Math.PI) / 180) * height;
-      const paddingTop = deg < 0 ? height - innerH : 0;
-      const paddingBottom = deg > 0 ? height - innerH : 0;
-
-      return {
-        transform: [{ rotateX: `${deg}deg` }],
-        paddingTop,
-        paddingBottom,
-        opacity: 1,
-      };
-    });
-
-    return (
-      <Pressable
-        onPress={handlePress}
-        className="items-center px-5 justify-center self-center overflow-visible"
-        style={{ height }}
-      >
-        <Animated.View style={animatedStyle}>
-          <Text className={"font-medium text-foreground text-lg"}>{value}</Text>
-        </Animated.View>
-      </Pressable>
+    const deg = clamp(
+      interpolate(raw, interpolationInput, [-50, -30, 30, 50]),
+      -50,
+      50,
     );
-  },
-);
+
+    const innerH = Math.cos((deg * Math.PI) / 180) * height;
+    const paddingTop = deg < 0 ? height - innerH : 0;
+    const paddingBottom = deg > 0 ? height - innerH : 0;
+
+    return {
+      transform: [{ rotateX: `${deg}deg` }],
+      paddingTop,
+      paddingBottom,
+      opacity: 1,
+    };
+  });
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      className="items-center px-5 justify-center self-center overflow-visible"
+      style={{ height }}
+    >
+      <Animated.View style={animatedStyle}>
+        <Text className={"font-medium text-foreground text-lg"}>{value}</Text>
+      </Animated.View>
+    </Pressable>
+  );
+};

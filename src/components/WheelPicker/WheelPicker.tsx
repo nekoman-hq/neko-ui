@@ -7,20 +7,24 @@
  * @template T - The type of values in the picker (string or number)
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Platform, Pressable, Text, View, type ViewStyle } from "react-native";
+import {
+  FlashList,
+  type FlashListRef,
+  type ListRenderItemInfo,
+} from "@shopify/flash-list";
 import Animated, {
-  Easing,
   FadeIn,
   LinearTransition,
-  ReduceMotion,
-  scrollTo,
-  useAnimatedRef,
   useAnimatedScrollHandler,
-  useDerivedValue,
   useSharedValue,
-  withTiming,
-  cancelAnimation,
   useAnimatedStyle,
   clamp,
   interpolate,
@@ -35,19 +39,7 @@ import {
   PickerItemProps,
   WheelPickerProps,
 } from "@/src/components/WheelPicker/WheelPicker.types";
-import { scheduleOnRN, scheduleOnUI } from "react-native-worklets";
-
-/**
- * Animation configuration for smooth transitions
- * - duration: 300ms for balanced speed and smoothness
- * - easing: Quadratic ease-in-out for natural motion
- * - reduceMotion: Respects system accessibility settings
- */
-const withTimingConfig = {
-  duration: 300,
-  easing: Easing.inOut(Easing.quad),
-  reduceMotion: ReduceMotion.System,
-};
+import { scheduleOnRN } from "react-native-worklets";
 
 /**
  * Height of each picker item in pixels
@@ -56,20 +48,22 @@ const withTimingConfig = {
 const ItemHeight = 35;
 const PickerHeight = ItemHeight * 5;
 const ListEdgeSpacerHeight = ItemHeight * 2;
+const ProgrammaticScrollDuration = 300;
+const TapChangeDelay = ProgrammaticScrollDuration + 50;
 const ListEdgeSpacer = () => <View style={{ height: ListEdgeSpacerHeight }} />;
-
-const getItemLayout = (_: unknown, i: number) => ({
-  length: ItemHeight,
-  offset: ItemHeight * i,
-  index: i,
-});
+const ReanimatedFlashList = Animated.createAnimatedComponent(
+  FlashList as React.ComponentType<any>,
+);
 
 const clampIndex = (value: number, length: number) => {
   if (length <= 0) return 0;
   return Math.min(Math.max(value, 0), length - 1);
 };
 
-const hasDataChanged = <T extends string | number>(previous: T[], next: T[]) => {
+const hasDataChanged = <T extends string | number>(
+  previous: T[],
+  next: T[],
+) => {
   if (previous === next) return false;
   if (previous.length !== next.length) return true;
 
@@ -93,6 +87,8 @@ export const WheelPicker = <T extends string | number>({
   const onChangeRef = useRef(onChange);
   const normalizedDataRef = useRef(data);
   onChangeRef.current = onChange;
+
+  const [contentWidth, setContentWidth] = useState(0);
 
   // ========================================
   // LIFECYCLE TRACKING
@@ -148,27 +144,25 @@ export const WheelPicker = <T extends string | number>({
    * Only the most recent tap will trigger onChange after animation
    */
   const pendingTapIndexRef = useRef<number | null>(null);
+  const programmaticScrollTimeoutRef = useRef<NodeJS.Timeout | number | null>(
+    null,
+  );
 
   // ========================================
   // ANIMATION REFERENCES
   // ========================================
 
   /**
-   * Reanimated reference to the FlatList for programmatic scrolling
+   * Ref to FlashList for programmatic scrolling
    */
-  const flatlistRef = useAnimatedRef<FlatList<T>>();
+  const flatlistRef = useRef<FlashListRef<T>>(null);
+  const animatedFlashListRef = flatlistRef as unknown as React.RefObject<any>;
 
   /**
    * Current scroll Y position in pixels
    * Updated on every scroll event, used for 3D transformation calculations
    */
   const scrollY = useSharedValue(0);
-
-  /**
-   * Target scroll position for programmatic scrolling
-   * Updated via withTiming for smooth animated scrolls
-   */
-  const targetScrollPosition = useSharedValue(initialIndexRef.current * ItemHeight);
 
   if (hasDataChanged(normalizedDataRef.current, data)) {
     normalizedDataRef.current = data;
@@ -190,6 +184,13 @@ export const WheelPicker = <T extends string | number>({
     if (animationTimeoutRef.current) {
       clearTimeout(animationTimeoutRef.current);
       animationTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearProgrammaticScrollTimeout = useCallback(() => {
+    if (programmaticScrollTimeoutRef.current) {
+      clearTimeout(programmaticScrollTimeoutRef.current);
+      programmaticScrollTimeoutRef.current = null;
     }
   }, []);
 
@@ -226,45 +227,46 @@ export const WheelPicker = <T extends string | number>({
    * @param animated - Whether to animate the scroll (default: true)
    *
    * Flow:
-   * 1. Cancel any ongoing animations
+   * 1. Cancel any pending timers
    * 2. Mark scroll as programmatic
-   * 3. If animated: use withTiming for smooth transition
-   * 4. If not animated: jump immediately to position
+   * 3. Scroll using FlashList imperative ref API
+   * 4. If not animated: clear programmatic flag immediately
    * 5. Clear programmatic flag when done
    */
-  const debouncedScrollToIndex = useRef(
-    debounce((newIndex: number, animated: boolean = true) => {
+  const scrollToIndex = useCallback(
+    (newIndex: number, animated: boolean = true) => {
       if (!isMountedRef.current) return;
 
-      cancelAnimation(targetScrollPosition);
-      clearAnimationTimeout();
+      const targetScrollPosition = newIndex * ItemHeight;
+      clearProgrammaticScrollTimeout();
       isProgrammaticScroll.value = true;
 
-      if (animated) {
-        targetScrollPosition.value = withTiming(
-          newIndex * ItemHeight,
-          withTimingConfig,
-          () => {
-            isProgrammaticScroll.value = false;
-          },
-        );
-      } else {
-        targetScrollPosition.value = newIndex * ItemHeight;
-        isProgrammaticScroll.value = false;
-      }
-    }, 300),
-  ).current;
+      flatlistRef.current?.scrollToOffset({
+        offset: targetScrollPosition,
+        animated,
+        skipFirstItemOffset: true,
+      });
 
-  /**
-   * Apply programmatic scroll position changes to FlatList
-   * Only applies when user is not actively scrolling
-   * Runs on every frame via useDerivedValue
-   */
-  useDerivedValue(() => {
-    if (!isUserScrolling.value) {
-      scrollTo(flatlistRef, 0, targetScrollPosition.value, false);
-    }
-  });
+      if (!animated) {
+        isProgrammaticScroll.value = false;
+        return;
+      }
+
+      programmaticScrollTimeoutRef.current = setTimeout(() => {
+        isProgrammaticScroll.value = false;
+      }, ProgrammaticScrollDuration + 80);
+    },
+    [clearProgrammaticScrollTimeout, isProgrammaticScroll],
+  );
+
+  const debouncedScrollToIndex = useMemo(
+    () =>
+      debounce((newIndex: number, animated: boolean = true) => {
+        clearAnimationTimeout();
+        scrollToIndex(newIndex, animated);
+      }, 300),
+    [clearAnimationTimeout, scrollToIndex],
+  );
 
   /**
    * Animated scroll handler that updates scrollY shared value
@@ -302,27 +304,10 @@ export const WheelPicker = <T extends string | number>({
   const handleItemPress = useCallback(
     (i: number) => {
       if (i === currentIndexRef.current) return;
+      if (isUserScrolling.get() || isProgrammaticScroll.get()) return;
 
       clearAnimationTimeout();
-
-      // Check und Animation innerhalb von scheduleOnUI
-      scheduleOnUI(() => {
-        "worklet";
-
-        // Jetzt können wir sicher auf .value zugreifen
-        if (isUserScrolling.value || isProgrammaticScroll.value) return;
-
-        cancelAnimation(targetScrollPosition);
-        isProgrammaticScroll.value = true;
-
-        targetScrollPosition.value = withTiming(
-          i * ItemHeight,
-          withTimingConfig,
-          () => {
-            isProgrammaticScroll.value = false;
-          },
-        );
-      });
+      scrollToIndex(i, true);
 
       // Timeout für onChange auf JS Thread
       pendingTapIndexRef.current = i;
@@ -332,9 +317,15 @@ export const WheelPicker = <T extends string | number>({
           reportValueChange(i);
           pendingTapIndexRef.current = null;
         }
-      }, withTimingConfig.duration + 50);
+      }, TapChangeDelay);
     },
-    [clearAnimationTimeout, reportValueChange, isProgrammaticScroll, isUserScrolling, targetScrollPosition],
+    [
+      clearAnimationTimeout,
+      isProgrammaticScroll,
+      isUserScrolling,
+      reportValueChange,
+      scrollToIndex,
+    ],
   );
 
   /**
@@ -351,8 +342,12 @@ export const WheelPicker = <T extends string | number>({
    */
   const handleMomentumScrollEnd = useCallback(
     (e: any) => {
-      "worklet";
-      if (isProgrammaticScroll.get()) return;
+      if (isProgrammaticScroll.get()) {
+        clearProgrammaticScrollTimeout();
+        isProgrammaticScroll.set(false);
+        isUserScrolling.set(false);
+        return;
+      }
 
       const newIndex = clampIndex(
         Math.round(e.nativeEvent.contentOffset.y / ItemHeight),
@@ -361,13 +356,17 @@ export const WheelPicker = <T extends string | number>({
 
       if (newIndex !== currentIndexRef.current) {
         currentIndexRef.current = newIndex;
-        targetScrollPosition.value = newIndex * ItemHeight;
         reportValueChange(newIndex);
       }
 
       isUserScrolling.set(false);
     },
-    [isProgrammaticScroll, isUserScrolling, reportValueChange, targetScrollPosition],
+    [
+      clearProgrammaticScrollTimeout,
+      isProgrammaticScroll,
+      isUserScrolling,
+      reportValueChange,
+    ],
   );
 
   // ========================================
@@ -399,8 +398,6 @@ export const WheelPicker = <T extends string | number>({
       pendingTapIndexRef.current = null;
       currentIndexRef.current = nextIndex;
       lastReportedIndexRef.current = nextIndex;
-
-      cancelAnimation(targetScrollPosition);
       debouncedScrollToIndex(nextIndex, true);
     }
   }, [
@@ -408,18 +405,19 @@ export const WheelPicker = <T extends string | number>({
     normalizedData.length,
     clearAnimationTimeout,
     debouncedScrollToIndex,
-    targetScrollPosition,
   ]);
 
   useEffect(() => {
-    const clampedIndex = clampIndex(currentIndexRef.current, normalizedData.length);
+    const clampedIndex = clampIndex(
+      currentIndexRef.current,
+      normalizedData.length,
+    );
     if (clampedIndex !== currentIndexRef.current) {
       currentIndexRef.current = clampedIndex;
       lastReportedIndexRef.current = clampedIndex;
-      cancelAnimation(targetScrollPosition);
       debouncedScrollToIndex(clampedIndex, false);
     }
-  }, [normalizedData.length, debouncedScrollToIndex, targetScrollPosition]);
+  }, [normalizedData.length, debouncedScrollToIndex]);
 
   /**
    * Cleanup effect
@@ -429,9 +427,14 @@ export const WheelPicker = <T extends string | number>({
     return () => {
       debouncedScrollToIndex.cancel();
       clearAnimationTimeout();
+      clearProgrammaticScrollTimeout();
       isMountedRef.current = false;
     };
-  }, [clearAnimationTimeout, debouncedScrollToIndex]);
+  }, [
+    clearAnimationTimeout,
+    clearProgrammaticScrollTimeout,
+    debouncedScrollToIndex,
+  ]);
 
   useAnimatedReaction(
     () => isProgrammaticScroll.value,
@@ -442,28 +445,21 @@ export const WheelPicker = <T extends string | number>({
     },
   );
 
-  const onScrollToIndexFailed = useCallback(
-    (info: { index: number }) => {
-      const wait = new Promise((resolve) => setTimeout(resolve, 500));
-      wait.then(() => {
-        flatlistRef.current?.scrollToIndex({
-          index: info.index,
-          animated: true,
-        });
-      });
-    },
-    [flatlistRef],
-  );
-
   const onScrollBeginDrag = useCallback(() => {
     isUserScrolling.value = true;
     isProgrammaticScroll.value = false;
+    clearProgrammaticScrollTimeout();
     clearAnimationTimeout();
     pendingTapIndexRef.current = null;
-  }, [clearAnimationTimeout, isProgrammaticScroll, isUserScrolling]);
+  }, [
+    clearAnimationTimeout,
+    clearProgrammaticScrollTimeout,
+    isProgrammaticScroll,
+    isUserScrolling,
+  ]);
 
   const renderItem = useCallback(
-    ({ item, index }: { item: T; index: number }) => (
+    ({ item, index }: ListRenderItemInfo<T>) => (
       <PickerItem
         onPress={handleItemPress}
         index={index}
@@ -480,6 +476,28 @@ export const WheelPicker = <T extends string | number>({
     [],
   );
 
+  const flashListWidth = useMemo<ViewStyle["width"]>(
+    () =>
+      Platform.OS === "web"
+        ? ("fit-content" as unknown as ViewStyle["width"])
+        : ("100%" as ViewStyle["width"]),
+    [],
+  );
+
+  const flashListContainerStyle = useMemo(
+    () => ({
+      width: contentWidth || undefined,
+    }),
+    [contentWidth],
+  );
+
+  const flashListContentContainerStyle = useMemo(
+    () => ({
+      width: contentWidth,
+    }),
+    [contentWidth],
+  );
+
   // ========================================
   // RENDER
   // ========================================
@@ -489,8 +507,22 @@ export const WheelPicker = <T extends string | number>({
       className="w-full items-center flex-row justify-center"
       style={{ height: PickerHeight }}
     >
+      {/* Width measurement ghost */}
+      <Text
+        style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
+        onLayout={(e) => setContentWidth(Math.ceil(e.nativeEvent.layout.width))}
+        className="font-medium text-foreground text-lg px-5"
+      >
+        {normalizedData.reduce(
+          (longest, item) =>
+            String(item).length > String(longest).length ? item : longest,
+          normalizedData[0] ?? "",
+        )}
+      </Text>
+
       {/* Gradient mask for fade effect on top/bottom */}
       <MaskedView
+        className={"w-full"}
         maskElement={
           <LinearGradient
             className="w-full"
@@ -506,34 +538,27 @@ export const WheelPicker = <T extends string | number>({
           />
         }
       >
-        <Animated.FlatList
+        <ReanimatedFlashList
           entering={FadeIn}
-          ref={flatlistRef}
+          ref={animatedFlashListRef}
           data={normalizedData}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
-          /* Performance optimizations */
-          initialNumToRender={10}
-          maxToRenderPerBatch={15}
-          windowSize={5}
           initialScrollIndex={
             normalizedData.length > 0 ? initialIndexRef.current : undefined
           }
-          removeClippedSubviews
-          updateCellsBatchingPeriod={50}
-          /* Layout configuration */
-          getItemLayout={getItemLayout}
+          /* FlashList v2 has maintainVisibleContentPosition enabled by default. */
+          maintainVisibleContentPosition={{ disabled: true }}
           ListHeaderComponent={ListEdgeSpacer}
           ListFooterComponent={ListEdgeSpacer}
           /* Scroll behavior */
           showsVerticalScrollIndicator={false}
-          className="overflow-hidden self-center"
-          style={{ height: PickerHeight }}
+          style={flashListContainerStyle}
+          contentContainerStyle={flashListContentContainerStyle}
           snapToInterval={ItemHeight}
           decelerationRate={0.9938}
           scrollEnabled={!isProgrammaticScrollState}
           /* Event handlers */
-          onScrollToIndexFailed={onScrollToIndexFailed}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           onEndReached={onEndReached}

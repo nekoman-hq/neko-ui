@@ -46,6 +46,34 @@ export const Default = {
   },
 };
 
+export const LargeData = {
+  render: () => {
+    const [index, setIndex] = useState(1500);
+
+    return (
+      <View className={"p-4 py-10 gap-4"}>
+        <WheelPicker
+          data={Array.from({ length: 2500 }).map((_, i) => i)}
+          onChange={(_, index) => setIndex(index)}
+          index={index}
+        />
+
+        <Text className={"text-foreground"}>Index: {index}</Text>
+
+        <View className={"flex flex-row gap-4"}>
+          <Button onPress={() => setIndex((prev) => prev - 100)}>
+            <ButtonText>-100</ButtonText>
+          </Button>
+
+          <Button onPress={() => setIndex((prev) => prev + 100)}>
+            <ButtonText>+100</ButtonText>
+          </Button>
+        </View>
+      </View>
+    );
+  },
+};
+
 export const WithText = {
   render: () => {
     const data = ["A", "B", "C", "D", "E", "F", "G", "H"];

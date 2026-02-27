@@ -437,7 +437,7 @@ export const WheelPicker = <T extends string | number>({
           /* Performance optimizations */
           initialNumToRender={10}
           maxToRenderPerBatch={15}
-          windowSize={15}
+          windowSize={5}
           initialScrollIndex={index}
           removeClippedSubviews
           updateCellsBatchingPeriod={50}

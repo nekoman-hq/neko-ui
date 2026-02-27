@@ -31,8 +31,10 @@ import MaskedView from "@react-native-masked-view/masked-view";
 import * as Haptics from "expo-haptics";
 import { ImpactFeedbackStyle } from "expo-haptics";
 import { debounce } from "lodash";
-import { WheelPickerProps } from "@/src/components/WheelPicker";
-import { PickerItemProps } from "@/src/components/WheelPicker/WheelPicker.types";
+import {
+  PickerItemProps,
+  WheelPickerProps,
+} from "@/src/components/WheelPicker/WheelPicker.types";
 import { scheduleOnRN, scheduleOnUI } from "react-native-worklets";
 
 /**
@@ -52,6 +54,31 @@ const withTimingConfig = {
  * Used for scroll calculations and snap intervals
  */
 const ItemHeight = 35;
+const PickerHeight = ItemHeight * 5;
+const ListEdgeSpacerHeight = ItemHeight * 2;
+const ListEdgeSpacer = () => <View style={{ height: ListEdgeSpacerHeight }} />;
+
+const getItemLayout = (_: unknown, i: number) => ({
+  length: ItemHeight,
+  offset: ItemHeight * i,
+  index: i,
+});
+
+const clampIndex = (value: number, length: number) => {
+  if (length <= 0) return 0;
+  return Math.min(Math.max(value, 0), length - 1);
+};
+
+const hasDataChanged = <T extends string | number>(previous: T[], next: T[]) => {
+  if (previous === next) return false;
+  if (previous.length !== next.length) return true;
+
+  for (let i = 0; i < next.length; i += 1) {
+    if (previous[i] !== next[i]) return true;
+  }
+
+  return false;
+};
 
 export const WheelPicker = <T extends string | number>({
   index,
@@ -61,15 +88,11 @@ export const WheelPicker = <T extends string | number>({
   onEndReached,
   labelClassName,
 }: WheelPickerProps<T>) => {
-  // ========================================
-  // STATE MANAGEMENT
-  // ========================================
-
-  /**
-   * Single source of truth for the currently selected index
-   * Synchronized with external `index` prop and internal scroll position
-   */
-  const [currentIndex, setCurrentIndex] = useState(index);
+  const initialIndexRef = useRef(clampIndex(index, data.length));
+  const currentIndexRef = useRef(initialIndexRef.current);
+  const onChangeRef = useRef(onChange);
+  const normalizedDataRef = useRef(data);
+  onChangeRef.current = onChange;
 
   // ========================================
   // LIFECYCLE TRACKING
@@ -80,12 +103,6 @@ export const WheelPicker = <T extends string | number>({
    * Prevents onChange from firing during initialization
    */
   const isMountedRef = useRef(false);
-
-  /**
-   * Indicates if component is in initialization phase
-   * Used to avoid triggering callbacks on first render
-   */
-  const isInitializingRef = useRef(true);
 
   // ========================================
   // SCROLL STATE FLAGS
@@ -139,7 +156,7 @@ export const WheelPicker = <T extends string | number>({
   /**
    * Reanimated reference to the FlatList for programmatic scrolling
    */
-  const flatlistRef = useAnimatedRef<FlatList<number>>();
+  const flatlistRef = useAnimatedRef<FlatList<T>>();
 
   /**
    * Current scroll Y position in pixels
@@ -151,7 +168,12 @@ export const WheelPicker = <T extends string | number>({
    * Target scroll position for programmatic scrolling
    * Updated via withTiming for smooth animated scrolls
    */
-  const targetScrollPosition = useSharedValue(index * ItemHeight);
+  const targetScrollPosition = useSharedValue(initialIndexRef.current * ItemHeight);
+
+  if (hasDataChanged(normalizedDataRef.current, data)) {
+    normalizedDataRef.current = data;
+  }
+  const normalizedData = normalizedDataRef.current;
 
   // ========================================
   // HELPER FUNCTIONS
@@ -164,12 +186,12 @@ export const WheelPicker = <T extends string | number>({
    * - User starts manual scrolling (cancel tap's delayed onChange)
    * - External index prop changes (cancel any pending internal changes)
    */
-  const clearAnimationTimeout = () => {
+  const clearAnimationTimeout = useCallback(() => {
     if (animationTimeoutRef.current) {
       clearTimeout(animationTimeoutRef.current);
       animationTimeoutRef.current = null;
     }
-  };
+  }, []);
 
   /**
    * Reports a value change to parent component via onChange callback
@@ -182,13 +204,19 @@ export const WheelPicker = <T extends string | number>({
    * 2. If different: update tracking ref, trigger haptics, call onChange
    * 3. If same: skip to avoid redundant calls
    */
-  const reportValueChange = (index: number) => {
-    if (lastReportedIndexRef.current !== index) {
-      lastReportedIndexRef.current = index;
-      Haptics.impactAsync(ImpactFeedbackStyle.Light).then();
-      onChange(data[index], index);
+  const reportValueChange = useCallback((nextIndex: number) => {
+    if (
+      nextIndex < 0 ||
+      nextIndex >= normalizedDataRef.current.length ||
+      lastReportedIndexRef.current === nextIndex
+    ) {
+      return;
     }
-  };
+
+    lastReportedIndexRef.current = nextIndex;
+    Haptics.impactAsync(ImpactFeedbackStyle.Light).then();
+    onChangeRef.current(normalizedDataRef.current[nextIndex], nextIndex);
+  }, []);
 
   /**
    * Debounced scroll handler for external index changes
@@ -273,7 +301,7 @@ export const WheelPicker = <T extends string | number>({
    */
   const handleItemPress = useCallback(
     (i: number) => {
-      if (i === currentIndex) return;
+      if (i === currentIndexRef.current) return;
 
       clearAnimationTimeout();
 
@@ -300,12 +328,13 @@ export const WheelPicker = <T extends string | number>({
       pendingTapIndexRef.current = i;
       animationTimeoutRef.current = setTimeout(() => {
         if (pendingTapIndexRef.current === i) {
+          currentIndexRef.current = i;
           reportValueChange(i);
           pendingTapIndexRef.current = null;
         }
       }, withTimingConfig.duration + 50);
     },
-    [data, onChange, currentIndex],
+    [clearAnimationTimeout, reportValueChange, isProgrammaticScroll, isUserScrolling, targetScrollPosition],
   );
 
   /**
@@ -325,17 +354,20 @@ export const WheelPicker = <T extends string | number>({
       "worklet";
       if (isProgrammaticScroll.get()) return;
 
-      const newIndex = Math.round(e.nativeEvent.contentOffset.y / ItemHeight);
+      const newIndex = clampIndex(
+        Math.round(e.nativeEvent.contentOffset.y / ItemHeight),
+        normalizedDataRef.current.length,
+      );
 
-      if (newIndex !== currentIndex) {
-        setCurrentIndex(newIndex);
+      if (newIndex !== currentIndexRef.current) {
+        currentIndexRef.current = newIndex;
         targetScrollPosition.value = newIndex * ItemHeight;
         reportValueChange(newIndex);
       }
 
       isUserScrolling.set(false);
     },
-    [currentIndex, data, onChange],
+    [isProgrammaticScroll, isUserScrolling, reportValueChange, targetScrollPosition],
   );
 
   // ========================================
@@ -358,20 +390,36 @@ export const WheelPicker = <T extends string | number>({
   useEffect(() => {
     if (!isMountedRef.current) {
       isMountedRef.current = true;
-      isInitializingRef.current = false;
       return;
     }
 
-    if (index !== undefined && index !== currentIndex) {
+    const nextIndex = clampIndex(index, normalizedData.length);
+    if (nextIndex !== currentIndexRef.current) {
       clearAnimationTimeout();
       pendingTapIndexRef.current = null;
-      lastReportedIndexRef.current = index;
+      currentIndexRef.current = nextIndex;
+      lastReportedIndexRef.current = nextIndex;
 
       cancelAnimation(targetScrollPosition);
-      setCurrentIndex(index);
-      debouncedScrollToIndex(index, true);
+      debouncedScrollToIndex(nextIndex, true);
     }
-  }, [index]);
+  }, [
+    index,
+    normalizedData.length,
+    clearAnimationTimeout,
+    debouncedScrollToIndex,
+    targetScrollPosition,
+  ]);
+
+  useEffect(() => {
+    const clampedIndex = clampIndex(currentIndexRef.current, normalizedData.length);
+    if (clampedIndex !== currentIndexRef.current) {
+      currentIndexRef.current = clampedIndex;
+      lastReportedIndexRef.current = clampedIndex;
+      cancelAnimation(targetScrollPosition);
+      debouncedScrollToIndex(clampedIndex, false);
+    }
+  }, [normalizedData.length, debouncedScrollToIndex, targetScrollPosition]);
 
   /**
    * Cleanup effect
@@ -383,7 +431,7 @@ export const WheelPicker = <T extends string | number>({
       clearAnimationTimeout();
       isMountedRef.current = false;
     };
-  }, []);
+  }, [clearAnimationTimeout, debouncedScrollToIndex]);
 
   useAnimatedReaction(
     () => isProgrammaticScroll.value,
@@ -394,6 +442,44 @@ export const WheelPicker = <T extends string | number>({
     },
   );
 
+  const onScrollToIndexFailed = useCallback(
+    (info: { index: number }) => {
+      const wait = new Promise((resolve) => setTimeout(resolve, 500));
+      wait.then(() => {
+        flatlistRef.current?.scrollToIndex({
+          index: info.index,
+          animated: true,
+        });
+      });
+    },
+    [flatlistRef],
+  );
+
+  const onScrollBeginDrag = useCallback(() => {
+    isUserScrolling.value = true;
+    isProgrammaticScroll.value = false;
+    clearAnimationTimeout();
+    pendingTapIndexRef.current = null;
+  }, [clearAnimationTimeout, isProgrammaticScroll, isUserScrolling]);
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: T; index: number }) => (
+      <PickerItem
+        onPress={handleItemPress}
+        index={index}
+        value={item}
+        height={ItemHeight}
+        positionY={scrollY}
+      />
+    ),
+    [handleItemPress, scrollY],
+  );
+
+  const keyExtractor = useCallback(
+    (item: T, itemIndex: number) => `${itemIndex}-${item}`,
+    [],
+  );
+
   // ========================================
   // RENDER
   // ========================================
@@ -401,14 +487,14 @@ export const WheelPicker = <T extends string | number>({
   return (
     <View
       className="w-full items-center flex-row justify-center"
-      style={{ height: ItemHeight * 5 }}
+      style={{ height: PickerHeight }}
     >
       {/* Gradient mask for fade effect on top/bottom */}
       <MaskedView
         maskElement={
           <LinearGradient
             className="w-full"
-            style={{ height: ItemHeight * 5 }}
+            style={{ height: PickerHeight }}
             colors={[
               "rgba(0,0,0,0)", // Fully transparent at top
               "rgba(0,0,0,0.6)", // Fade in
@@ -423,59 +509,36 @@ export const WheelPicker = <T extends string | number>({
         <Animated.FlatList
           entering={FadeIn}
           ref={flatlistRef}
-          data={data}
-          renderItem={({ index }) => (
-            <PickerItem
-              onPress={handleItemPress}
-              index={index}
-              value={data[index]}
-              height={ItemHeight}
-              positionY={scrollY}
-            />
-          )}
-          keyExtractor={(item, index) => `${index}-${item}`}
+          data={normalizedData}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
           /* Performance optimizations */
           initialNumToRender={10}
           maxToRenderPerBatch={15}
           windowSize={5}
-          initialScrollIndex={index}
+          initialScrollIndex={
+            normalizedData.length > 0 ? initialIndexRef.current : undefined
+          }
           removeClippedSubviews
           updateCellsBatchingPeriod={50}
           /* Layout configuration */
-          getItemLayout={(_, i) => ({
-            length: ItemHeight,
-            offset: ItemHeight * i,
-            index: i,
-          })}
-          ListHeaderComponent={<View style={{ height: ItemHeight * 2 }} />}
-          ListFooterComponent={<View style={{ height: ItemHeight * 2 }} />}
+          getItemLayout={getItemLayout}
+          ListHeaderComponent={ListEdgeSpacer}
+          ListFooterComponent={ListEdgeSpacer}
           /* Scroll behavior */
           showsVerticalScrollIndicator={false}
           className="overflow-hidden self-center"
-          style={{ height: ItemHeight * 5 }}
+          style={{ height: PickerHeight }}
           snapToInterval={ItemHeight}
           decelerationRate={0.9938}
           scrollEnabled={!isProgrammaticScrollState}
           /* Event handlers */
-          onScrollToIndexFailed={(info) => {
-            const wait = new Promise((resolve) => setTimeout(resolve, 500));
-            wait.then(() => {
-              flatlistRef.current?.scrollToIndex({
-                index: info.index,
-                animated: true,
-              });
-            });
-          }}
+          onScrollToIndexFailed={onScrollToIndexFailed}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}
-          onScrollBeginDrag={() => {
-            isUserScrolling.value = true;
-            isProgrammaticScroll.value = false;
-            clearAnimationTimeout();
-            pendingTapIndexRef.current = null;
-          }}
+          onScrollBeginDrag={onScrollBeginDrag}
           onMomentumScrollEnd={handleMomentumScrollEnd}
         />
       </MaskedView>
@@ -513,6 +576,16 @@ const PickerItem = React.memo(
     positionY,
     onPress,
   }: PickerItemProps<T>) => {
+    const centerOffset = height * 2.5;
+    const centerY = index * height + centerOffset;
+    const maxDistanceFromCenter = height * 3;
+    const interpolationInput = [
+      centerY - height * 2,
+      centerY - height * 0.67,
+      centerY + height * 0.67,
+      centerY + height * 2,
+    ];
+
     /**
      * Handle tap on this item
      * Provides medium haptic feedback for tactile response
@@ -538,28 +611,15 @@ const PickerItem = React.memo(
      * - Returns simple style to avoid expensive calculations
      */
     const animatedStyle = useAnimatedStyle(() => {
-      const centerY = index * height + height * 2.5;
-      const distanceFromCenter = Math.abs(
-        positionY.value + height * 2.5 - centerY,
-      );
+      const raw = positionY.value + centerOffset;
+      const distanceFromCenter = Math.abs(raw - centerY);
 
-      if (distanceFromCenter > height * 3) {
+      if (distanceFromCenter > maxDistanceFromCenter) {
         return { opacity: 1 };
       }
 
-      const raw = positionY.value + height * 2.5;
-
       const deg = clamp(
-        interpolate(
-          raw,
-          [
-            centerY - height * 2,
-            centerY - height * 0.67,
-            centerY + height * 0.67,
-            centerY + height * 2,
-          ],
-          [-50, -30, 30, 50],
-        ),
+        interpolate(raw, interpolationInput, [-50, -30, 30, 50]),
         -50,
         50,
       );

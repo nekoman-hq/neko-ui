@@ -11,11 +11,11 @@ export const WheelPicker = <T extends string | number>({
   label,
   labelClassName,
   itemTextClassName,
-  containerClassName,
+  className,
   ...props
 }: WheelPickerProps<T>) => {
   return (
-    <View className={clsx("!w-fit flex-row  items-center", containerClassName)}>
+    <View className={clsx("flex-row  items-center", className)}>
       <VirtualizedWheelPicker<PickerItem<T>>
         windowSize={15}
         itemHeight={40}

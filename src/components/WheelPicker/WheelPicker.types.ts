@@ -30,5 +30,5 @@ export interface WheelPickerProps<T>
   onValueChanged: (e: ValueChangedEvent<PickerItem<T>>) => void;
   label?: string;
   labelClassName?: string;
-  containerClassName?: string;
+  className?: string;
 }

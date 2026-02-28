@@ -1,99 +1,43 @@
 import React, { useState } from "react";
-import { WheelPicker } from "./WheelPicker";
 import { Meta } from "@storybook/react-native";
-import { Text, View } from "react-native";
-import {
-  Button,
-  ButtonText,
-  Segment,
-  SegmentedControl,
-  ThemeProvider,
-} from "@/src";
+import { WheelPicker } from "./WheelPicker";
+import { useWheelPickerData } from "@/src/components/WheelPicker/WheelPicker.hook";
+import { View } from "react-native";
 
 const meta: Meta = {
   title: "Components/WheelPicker",
   component: WheelPicker,
-  args: {},
 };
 
 export default meta;
 
 export const Default = {
   render: () => {
-    const [index, setIndex] = useState(25);
-
-    return (
-      <View className={"p-4 py-10 gap-4"}>
-        <WheelPicker
-          data={Array.from({ length: 200 }).map((_, i) => i)}
-          onChange={(_, index) => setIndex(index)}
-          index={index}
-        />
-
-        <Text className={"text-foreground"}>Index: {index}</Text>
-
-        <View className={"flex flex-row gap-4"}>
-          <Button onPress={() => setIndex((prev) => prev - 10)}>
-            <ButtonText>-10</ButtonText>
-          </Button>
-
-          <Button onPress={() => setIndex((prev) => prev + 10)}>
-            <ButtonText>+10</ButtonText>
-          </Button>
-        </View>
-      </View>
+    const [data, setData] = useState(
+      Array.from({ length: 100 }).map((_, index) => index),
     );
-  },
-};
-
-export const LargeData = {
-  render: () => {
-    const [index, setIndex] = useState(1600);
+    const [value, setValue] = useState(500);
 
     return (
-      <View className={"p-4 py-10 gap-4"}>
+      <View className={"w-full items-center justify-center"}>
         <WheelPicker
-          data={Array.from({ length: 2500 }).map((_, i) => i)}
-          onChange={(_, index) => setIndex(index)}
-          index={index}
+          label={"kg"}
+          value={value}
+          data={useWheelPickerData(data)}
+          onEndReachedThreshold={0.7}
+          onEndReached={() => {
+            console.log("Reached end");
+            setData((prev) => [
+              ...prev,
+              ...Array.from({ length: 100 }).map(
+                (_, index) => index + prev.length,
+              ),
+            ]);
+          }}
+          onValueChanged={(e) => {
+            setValue(e.item.value);
+          }}
         />
-
-        <Text className={"text-foreground"}>Index: {index}</Text>
-
-        <View className={"flex flex-row gap-4"}>
-          <Button onPress={() => setIndex((prev) => prev - 100)}>
-            <ButtonText>-100</ButtonText>
-          </Button>
-
-          <Button onPress={() => setIndex((prev) => prev + 100)}>
-            <ButtonText>+100</ButtonText>
-          </Button>
-        </View>
-      </View>
-    );
-  },
-};
-
-export const WithText = {
-  render: () => {
-    const data = ["A", "B", "C", "D", "E", "F", "G", "H"];
-    const [value, setValue] = useState("A");
-
-    return (
-      <View className={"gap-4 p-4"}>
-        <WheelPicker
-          index={data.indexOf(value)}
-          onChange={(label, index) => setValue(label)}
-          data={data}
-        />
-
-        <Text className={"text-foreground"}>Value: {value}</Text>
-
-        <SegmentedControl value={value} onChange={setValue}>
-          {data.map((c) => (
-            <Segment key={c} label={c} />
-          ))}
-        </SegmentedControl>
       </View>
     );
   },

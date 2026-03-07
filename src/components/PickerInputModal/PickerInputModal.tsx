@@ -2,6 +2,7 @@ import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import { PickerItem } from "@quidone/react-native-wheel-picker";
 import clsx from "clsx";
 import React, {
+  RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -12,7 +13,6 @@ import {
   Keyboard,
   KeyboardEvent,
   Pressable,
-  StyleSheet,
   Text,
   TextInput as ReactNativeTextInput,
   View,
@@ -57,6 +57,20 @@ type PickerInputModalCompoundComponent = React.ForwardRefExoticComponent<
 const HANDLE_AND_PADDING = 52;
 const KEYBOARD_OPEN_DELAY = 100;
 const KEYBOARD_CLOSE_DELAY = 300;
+const DEFAULT_BACKGROUND_COLOR = "rgb(16, 16, 20)";
+const DEFAULT_CARD_COLOR = "rgb(27, 31, 55)";
+const HANDLE_INDICATOR_STYLE = {
+  backgroundColor: DEFAULT_CARD_COLOR,
+  height: 4,
+  marginVertical: 10,
+  width: "30%",
+} as const;
+const SHEET_BACKGROUND_STYLE = {
+  backgroundColor: DEFAULT_BACKGROUND_COLOR,
+} as const;
+const BOTTOM_SHEET_STYLE = {
+  zIndex: 100,
+} as const;
 
 function PickerInputModalInput(
   _props: PickerInputModalInputProps<number>,
@@ -304,8 +318,7 @@ const PickerInputModalRoot = React.forwardRef<
       }
 
       if (ref) {
-        (ref as React.MutableRefObject<PickerInputModalRef | null>).current =
-          instance;
+        (ref as RefObject<PickerInputModalRef | null>).current = instance;
       }
     },
     [ref],
@@ -330,9 +343,11 @@ const PickerInputModalRoot = React.forwardRef<
   }, []);
 
   const collapsedSnapPoint =
-    collapsedHeight > 0 ? collapsedHeight + HANDLE_AND_PADDING : 0;
+    (collapsedHeight > 0 ? collapsedHeight + HANDLE_AND_PADDING : 0) + bottom;
   const expandedSnapPoint =
-    pickerHeight > 0 ? pickerHeight + HANDLE_AND_PADDING : collapsedSnapPoint;
+    (pickerHeight > 0
+      ? pickerHeight + HANDLE_AND_PADDING
+      : collapsedSnapPoint) + bottom;
 
   const snapPoints = useMemo(() => {
     if (collapsedSnapPoint <= 0) {
@@ -480,86 +495,90 @@ const PickerInputModalRoot = React.forwardRef<
     };
   }, [clearKeyboardHideTimeout, clearPickerOpenTimeout, expandForKeyboard]);
 
-  if (groups.length === 0 || snapPoints.length === 0 || contentHeight === 0) {
-    return (
+  const renderMeasurement = () => (
+    <View
+      className={"absolute left-0 right-0 top-0 opacity-0"}
+      pointerEvents={"none"}
+      accessibilityElementsHidden={true}
+      importantForAccessibility={"no-hide-descendants"}
+    >
       <View
-        style={styles.measurementContainer}
-        pointerEvents={"none"}
-        accessibilityElementsHidden={true}
-        importantForAccessibility={"no-hide-descendants"}
+        className={"w-full flex-row items-start gap-3"}
+        onLayout={(event) => {
+          const nextHeight = event.nativeEvent.layout.height;
+          if (nextHeight > 0 && nextHeight !== collapsedHeight) {
+            setCollapsedHeight(nextHeight);
+          }
+        }}
       >
-        <View
-          onLayout={(event) => {
-            const nextHeight = event.nativeEvent.layout.height;
-            if (nextHeight > 0 && nextHeight !== collapsedHeight) {
-              setCollapsedHeight(nextHeight);
-            }
-          }}
-          style={[styles.measurementContent, styles.groupsRow]}
-        >
-          {groups.map((group) => {
-            const visibleInputs = group.inputs.filter(
-              (input) => input.textInput !== false,
-            );
-            const sourceInput = visibleInputs[0];
-            const renderSharedField = hasSharedTextField(group);
+        {groups.map((group) => {
+          const visibleInputs = group.inputs.filter(
+            (input) => input.textInput !== false,
+          );
+          const sourceInput = visibleInputs[0];
+          const renderSharedField = hasSharedTextField(group);
 
-            return (
-              <View key={group.id} style={styles.groupBlock}>
-                {renderSharedField ? (
-                  <View style={styles.inputRow}>
-                    <ReactNativeTextInput
-                      editable={false}
-                      style={styles.hiddenMeasurementInput}
-                      value={
-                        group.textInputValue ??
-                        (sourceInput ? formatInputValue(sourceInput) : "")
-                      }
-                    />
-                  </View>
-                ) : (
-                  visibleInputs.map((input) => (
-                    <View key={input.id} style={styles.inputRow}>
-                      <ReactNativeTextInput
-                        editable={false}
-                        style={styles.hiddenMeasurementInput}
-                        value={formatInputValue(input)}
-                      />
-                    </View>
-                  ))
-                )}
-              </View>
-            );
-          })}
-        </View>
-
-        <View
-          onLayout={(event) => {
-            const nextHeight = event.nativeEvent.layout.height;
-            if (nextHeight > 0 && nextHeight !== pickerHeight) {
-              setPickerHeight(nextHeight);
-            }
-          }}
-          style={[styles.measurementContent, styles.groupsRow]}
-        >
-          {groups.map((group) => (
-            <View key={group.id} style={styles.pickerGroup}>
-              {group.inputs.map((input) => (
-                <View key={input.id} style={styles.pickerSlot}>
-                  <WheelPicker
-                    className={"flex-1 justify-center"}
-                    data={input.pickerData}
-                    label={input.label}
-                    value={input.value}
-                    onValueChanged={() => {}}
+          return (
+            <View key={group.id} className={"min-w-0 flex-1 gap-3"}>
+              {renderSharedField ? (
+                <View className={"w-full items-center"}>
+                  <ReactNativeTextInput
+                    editable={false}
+                    className={"py-3.5 text-lg font-semibold opacity-0"}
+                    value={
+                      group.textInputValue ??
+                      (sourceInput ? formatInputValue(sourceInput) : "")
+                    }
                   />
                 </View>
-              ))}
+              ) : (
+                visibleInputs.map((input) => (
+                  <View key={input.id} className={"w-full items-center"}>
+                    <ReactNativeTextInput
+                      editable={false}
+                      className={"py-3.5 text-lg font-semibold opacity-0"}
+                      value={formatInputValue(input)}
+                    />
+                  </View>
+                ))
+              )}
             </View>
-          ))}
-        </View>
+          );
+        })}
       </View>
-    );
+
+      <View
+        className={"w-full flex-row items-start gap-3"}
+        onLayout={(event) => {
+          const nextHeight = event.nativeEvent.layout.height;
+          if (nextHeight > 0 && nextHeight !== pickerHeight) {
+            setPickerHeight(nextHeight);
+          }
+        }}
+      >
+        {groups.map((group) => (
+          <View key={group.id} className={"min-w-0 flex-1 flex-row gap-3"}>
+            {group.inputs.map((input) => (
+              <View key={input.id} className={"h-[200px] flex-1"}>
+                <WheelPicker
+                  className={"flex-1 justify-center"}
+                  data={input.pickerData}
+                  label={input.label}
+                  itemHeight={input.pickerItemHeight ?? 40}
+                  onValueChanged={() => {}}
+                  value={input.value}
+                  visibleItemCount={input.pickerVisibleItemCount ?? 5}
+                />
+              </View>
+            ))}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+
+  if (groups.length === 0 || snapPoints.length === 0 || contentHeight === 0) {
+    return renderMeasurement();
   }
 
   return (
@@ -570,38 +589,39 @@ const PickerInputModalRoot = React.forwardRef<
       backdropComponent={() =>
         keyboardVisible ? (
           <Pressable
+            className={"absolute inset-0"}
             onPress={Keyboard.dismiss}
-            style={StyleSheet.absoluteFill}
           />
         ) : null
       }
       enableDynamicSizing={false}
       enableOverDrag={false}
       enablePanDownToClose={false}
-      handleIndicatorStyle={styles.handleIndicator}
+      handleIndicatorStyle={HANDLE_INDICATOR_STYLE}
       index={0}
       keyboardBehavior={"interactive"}
+      backgroundStyle={SHEET_BACKGROUND_STYLE}
       ref={assignBottomSheetRef}
       snapPoints={snapPoints}
-      style={styles.bottomSheet}
+      style={BOTTOM_SHEET_STYLE}
+      bottomInset={200}
     >
-      <BottomSheetView style={styles.sheetContainer}>
+      <BottomSheetView
+        className={"w-full items-center bg-background px-5 pb-4"}
+      >
         <View
-          style={[
-            styles.contentContainer,
-            {
-              minHeight: contentHeight,
-            },
-          ]}
+          className={"relative w-full bg-background"}
+          style={{ minHeight: contentHeight }}
         >
           <Animated.View
+            className={"w-full flex-row items-start gap-3"}
             onLayout={(event) => {
               const nextHeight = event.nativeEvent.layout.height;
               if (nextHeight > 0 && nextHeight !== collapsedHeight) {
                 setCollapsedHeight(nextHeight);
               }
             }}
-            style={[styles.firstView, styles.groupsRow, firstViewAnimatedStyle]}
+            style={[firstViewAnimatedStyle]}
           >
             {groups.map((group) => {
               const visibleInputs = group.inputs.filter(
@@ -628,54 +648,65 @@ const PickerInputModalRoot = React.forwardRef<
                     : value;
 
                 return (
-                  <View key={id} style={styles.inputRow}>
-                    <ReactNativeTextInput
-                      className={"bg-background color-foreground border-card"}
-                      inputMode={inputMode}
-                      keyboardType={
-                        keyboardType ??
-                        (typeof fallbackValue === "number"
-                          ? "numeric"
-                          : "default")
+                  <View
+                    key={id}
+                    className={"w-full items-center justify-center"}
+                  >
+                    <View
+                      className={
+                        "relative  min-h-16 flex-1 flex-row items-center justify-center rounded-[15px] border border-card bg-background px-[15px]"
                       }
-                      maxLength={maxLength}
-                      onBlur={() => {
-                        clearTextDraft(id);
-                        setFocusedTextFieldId((currentId) =>
-                          currentId === id ? null : currentId,
-                        );
-                      }}
-                      onChangeText={(nextValue) => {
-                        setTextDraft(id, nextValue);
-                        onChangeText(nextValue);
-                      }}
-                      onFocus={() => {
-                        setFocusedTextFieldId(id);
-                        setTextDraft(id, value);
-                      }}
-                      selectTextOnFocus={true}
-                      style={styles.textInput}
-                      value={displayValue}
-                      placeholder={placeholder}
-                      placeholderTextColor={"#6b7280"}
-                    />
-
-                    <Pressable
-                      className={"border-card"}
-                      onPress={openPickerView}
-                      style={styles.labelButton}
                     >
-                      <Text
-                        className={clsx(
-                          "text-foreground",
-                          !label && "opacity-70",
-                        )}
-                        numberOfLines={1}
-                        style={styles.labelButtonText}
-                      >
-                        {label ?? "Select"}
-                      </Text>
-                    </Pressable>
+                      <ReactNativeTextInput
+                        className={
+                          "flex-1 px-0 py-3.5 leading-[20px] text-center text-xl font-semibold color-foreground"
+                        }
+                        inputMode={inputMode}
+                        keyboardType={
+                          keyboardType ??
+                          (typeof fallbackValue === "number"
+                            ? "numeric"
+                            : "default")
+                        }
+                        maxLength={maxLength}
+                        onBlur={() => {
+                          clearTextDraft(id);
+                          setFocusedTextFieldId((currentId) =>
+                            currentId === id ? null : currentId,
+                          );
+                        }}
+                        onChangeText={(nextValue) => {
+                          setTextDraft(id, nextValue);
+                          onChangeText(nextValue);
+                        }}
+                        onFocus={() => {
+                          setFocusedTextFieldId(id);
+                          setTextDraft(id, value);
+                        }}
+                        placeholder={placeholder}
+                        placeholderTextColor={"#6b7280"}
+                        selectTextOnFocus={true}
+                        value={displayValue}
+                      />
+
+                      {label && (
+                        <Pressable
+                          className={
+                            "absolute bottom-0 right-4 top-0 justify-center"
+                          }
+                          onPress={openPickerView}
+                        >
+                          <Text
+                            className={clsx(
+                              "text-xl leading-[20px] font-semibold text-foreground",
+                            )}
+                            numberOfLines={1}
+                          >
+                            {label}
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
                   </View>
                 );
               };
@@ -686,7 +717,7 @@ const PickerInputModalRoot = React.forwardRef<
                   (sourceInput ? formatInputValue(sourceInput) : "");
 
                 return (
-                  <View key={group.id} style={styles.groupBlock}>
+                  <View key={group.id} className={"min-w-0 flex-1 gap-3"}>
                     {renderTextField(
                       sharedFieldId,
                       sharedValue,
@@ -712,7 +743,7 @@ const PickerInputModalRoot = React.forwardRef<
               }
 
               return (
-                <View key={group.id} style={styles.groupBlock}>
+                <View key={group.id} className={"min-w-0 flex-1 gap-3"}>
                   {visibleInputs.map((input) =>
                     renderTextField(
                       input.id,
@@ -733,6 +764,9 @@ const PickerInputModalRoot = React.forwardRef<
 
           {pickerInteractive && (
             <Animated.View
+              className={
+                "absolute left-0 right-0 top-0 flex-row items-start gap-3 bg-background"
+              }
               onLayout={(event) => {
                 const nextHeight = event.nativeEvent.layout.height;
                 if (nextHeight > 0 && nextHeight !== pickerHeight) {
@@ -740,24 +774,22 @@ const PickerInputModalRoot = React.forwardRef<
                 }
               }}
               pointerEvents={pickerInteractive ? "auto" : "none"}
-              style={[
-                styles.secondView,
-                styles.groupsRow,
-                secondViewAnimatedStyle,
-              ]}
-              className={"bg-blue-600"}
+              style={[secondViewAnimatedStyle]}
             >
               {groups.map((group) => (
-                <View key={group.id} style={styles.pickerGroup}>
+                <View
+                  key={group.id}
+                  className={"min-w-0 flex-1 flex-row gap-3"}
+                >
                   {group.inputs.map((input) => (
-                    <View key={input.id} style={styles.pickerSlot}>
+                    <View key={input.id} className={"h-[200px] flex-1"}>
                       <WheelPicker
                         className={clsx(
                           "flex-1 justify-center",
                           input.pickerClassName,
                         )}
                         data={input.pickerData}
-                        itemHeight={input.pickerItemHeight}
+                        itemHeight={input.pickerItemHeight ?? 40}
                         itemTextClassName={input.pickerItemTextClassName}
                         label={input.label}
                         labelClassName={input.pickerLabelClassName}
@@ -771,7 +803,7 @@ const PickerInputModalRoot = React.forwardRef<
                           );
                         }}
                         value={input.value}
-                        visibleItemCount={input.pickerVisibleItemCount}
+                        visibleItemCount={input.pickerVisibleItemCount ?? 5}
                       />
                     </View>
                   ))}
@@ -795,102 +827,3 @@ export const PickerInputModal = Object.assign(PickerInputModalRoot, {
 export { PickerInputModalInput, PickerInputModalInputGroup };
 
 export default PickerInputModal;
-
-const styles = StyleSheet.create({
-  bottomSheet: {
-    zIndex: 100,
-  },
-  contentContainer: {
-    width: "100%",
-    position: "relative",
-  },
-  firstView: {
-    width: "100%",
-  },
-  groupBlock: {
-    flex: 1,
-    gap: 12,
-    minWidth: 0,
-  },
-  groupsRow: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: 12,
-    width: "100%",
-  },
-  handleIndicator: {
-    backgroundColor: "#cbd5e1",
-    height: 4,
-    marginVertical: 10,
-    width: "30%",
-  },
-  hiddenMeasurementInput: {
-    fontSize: 18,
-    fontWeight: "600",
-    opacity: 0,
-    paddingVertical: 14,
-  },
-  inputRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-    width: "100%",
-  },
-  labelButton: {
-    alignItems: "center",
-    borderRadius: 16,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 56,
-    minWidth: 88,
-    paddingHorizontal: 14,
-  },
-  labelButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  measurementContainer: {
-    left: 0,
-    opacity: 0,
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
-  measurementContent: {
-    width: "100%",
-  },
-  pickerGroup: {
-    flex: 1,
-    flexDirection: "row",
-    gap: 12,
-    minWidth: 0,
-  },
-  pickerSlot: {
-    flex: 1,
-    minHeight: 200,
-  },
-  secondView: {
-    left: 0,
-    position: "absolute",
-    right: 0,
-    top: 0,
-    width: "100%",
-  },
-  sheetContainer: {
-    alignItems: "center",
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    width: "100%",
-  },
-  textInput: {
-    borderRadius: 16,
-    borderWidth: 1,
-    flex: 1,
-    fontSize: 18,
-    fontWeight: "600",
-    minHeight: 56,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    textAlign: "center",
-  },
-});

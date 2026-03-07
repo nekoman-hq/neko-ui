@@ -67,8 +67,6 @@ export const MultipleInputs = {
             onValueChange={setWeight}
             data={wholeNumberData}
             keyboardType={"numeric"}
-            label={"kg"}
-            pickerItemTextClassName={"color-background"}
           />
 
           <PickerInputModalInput

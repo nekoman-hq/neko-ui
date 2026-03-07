@@ -19,3 +19,4 @@ export * from "./BarChart";
 export * from "./Header";
 export * from "./Example";
 export * from "./WheelPicker";
+export * from './PickerInputModal';

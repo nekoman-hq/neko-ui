@@ -445,7 +445,10 @@ const PickerInputModalRoot = React.forwardRef<
     setKeyboardVisible(true);
     setPickerInteractive(false);
     bottomSheetRef.current?.snapToPosition(
-      keyboardHeightRef.current + collapsedSnapPoint + bottom + 28,
+      keyboardHeightRef.current + bottom + 10,
+      {
+        duration: 300,
+      },
     );
   }, [bottom, collapsedSnapPoint]);
 
@@ -604,7 +607,6 @@ const PickerInputModalRoot = React.forwardRef<
       ref={assignBottomSheetRef}
       snapPoints={snapPoints}
       style={BOTTOM_SHEET_STYLE}
-      bottomInset={200}
     >
       <BottomSheetView
         className={"w-full items-center bg-background px-5 pb-4"}

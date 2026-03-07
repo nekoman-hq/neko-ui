@@ -34,6 +34,7 @@ import type {
   PickerInputModalRef,
   PickerInputModalValue,
 } from "./PickerInputModal.types";
+import { useComponentInterop } from "@/src/hooks/Classname.hooks";
 
 type AnyInputProps = PickerInputModalInputProps<PickerInputModalValue>;
 

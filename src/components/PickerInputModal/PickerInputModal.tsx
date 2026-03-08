@@ -459,13 +459,13 @@ const PickerInputModalRoot = React.forwardRef<
     return { opacity, zIndex: opacity === 0 ? -1 : 1 };
   });
 
+  const contentOpacity = useSharedValue(1);
+
   const footerAnimatedStyle = useAnimatedStyle(() => {
     return {
-      opacity: withTiming(keyboardVisible ? 0 : 1, {
-        duration: 200,
-      }),
+      opacity: contentOpacity.value,
     };
-  }, [keyboardVisible]);
+  });
 
   const setTextDraft = useCallback((id: string, value: string) => {
     setTextDrafts((currentDrafts) => {
@@ -525,6 +525,9 @@ const PickerInputModalRoot = React.forwardRef<
 
   useEffect(() => {
     const handleKeyboardShow = (event: KeyboardEvent) => {
+      contentOpacity.value = withTiming(0, {
+        duration: 200,
+      });
       clearKeyboardHideTimeout();
       keyboardHeightRef.current = event?.endCoordinates?.height || 0;
       expandForKeyboard();
@@ -547,6 +550,10 @@ const PickerInputModalRoot = React.forwardRef<
     });
 
     const keyboardDidHide = Keyboard.addListener("keyboardWillHide", () => {
+      contentOpacity.value = withTiming(1, {
+        duration: 200,
+      });
+
       setKeyboardVisible(false);
       clearKeyboardHideTimeout();
 
@@ -588,7 +595,7 @@ const PickerInputModalRoot = React.forwardRef<
         <BottomSheetFooter animatedFooterPosition={animatedFooterPosition}>
           <Animated.View style={footerAnimatedStyle}>
             <View
-              className={clsx("bg-background px-5 pt-4", content.className)}
+              className={clsx("bg-background px-5 pt-1.5", content.className)}
               onLayout={(event) => {
                 handleFooterLayout(event.nativeEvent.layout.height);
               }}
@@ -667,9 +674,12 @@ const PickerInputModalRoot = React.forwardRef<
         {groups.map((group) => (
           <View key={group.id} className={"min-w-0 flex-1 flex-row gap-3"}>
             {group.inputs.map((input) => (
-              <View key={input.id} className={"h-[200px] flex-1"}>
+              <View
+                key={input.id}
+                className={"h-[180px] flex-1 justify-end align-bottom"}
+              >
                 <WheelPicker
-                  className={"flex-1 justify-center"}
+                  className={"flex-1 justify-center h-[200px]"}
                   data={input.pickerData}
                   label={input.label}
                   itemHeight={input.pickerItemHeight ?? 40}
@@ -685,7 +695,7 @@ const PickerInputModalRoot = React.forwardRef<
 
       {content ? (
         <View
-          className={clsx("w-full bg-background px-5 pt-4", content.className)}
+          className={clsx("w-full bg-background px-5", content.className)}
           onLayout={(event) => {
             handleFooterLayout(event.nativeEvent.layout.height);
           }}
@@ -908,10 +918,10 @@ const PickerInputModalRoot = React.forwardRef<
                   className={"min-w-0 flex-1 flex-row gap-3"}
                 >
                   {group.inputs.map((input) => (
-                    <View key={input.id} className={"h-[200px] flex-1"}>
+                    <View key={input.id} className={"h-[180px] flex-1"}>
                       <WheelPicker
                         className={clsx(
-                          "flex-1 justify-center",
+                          "flex-1 justify-center  h-[200px]",
                           input.pickerClassName,
                         )}
                         data={input.pickerData}

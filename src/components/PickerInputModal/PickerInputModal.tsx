@@ -259,6 +259,7 @@ function parseGroups(
         groups.push({
           id: createNodeId("group", currentPath, child.key?.toString()),
           label: child.props.label,
+          disabled: child.props.disabled,
           textInputValue: child.props.textInputValue,
           onTextInputValueChange: child.props.onTextInputValueChange,
           placeholder: child.props.placeholder,
@@ -777,55 +778,72 @@ const PickerInputModalRoot = React.forwardRef<
                 keyboardType?: AnyInputProps["keyboardType"],
                 inputMode?: AnyInputProps["inputMode"],
                 fallbackValue?: PickerInputModalValue,
+                disabled?: boolean,
               ) => {
                 const displayValue =
                   focusedTextFieldId === id && textDrafts[id] !== undefined
                     ? textDrafts[id]
                     : value;
 
-                return (
+                const inputField = (
                   <View
-                    key={id}
-                    className={"w-full items-center justify-center"}
+                    className={
+                      "relative  min-h-16 flex-1 flex-row items-center justify-center rounded-[15px] border border-card bg-background px-[15px]"
+                    }
                   >
-                    <View
+                    <ReactNativeTextInput
                       className={
-                        "relative  min-h-16 flex-1 flex-row items-center justify-center rounded-[15px] border border-card bg-background px-[15px]"
+                        "flex-1 px-0 py-3.5 leading-[20px] text-center text-xl font-semibold color-foreground"
                       }
-                    >
-                      <ReactNativeTextInput
-                        className={
-                          "flex-1 px-0 py-3.5 leading-[20px] text-center text-xl font-semibold color-foreground"
-                        }
-                        inputMode={inputMode}
-                        keyboardType={
-                          keyboardType ??
-                          (typeof fallbackValue === "number"
-                            ? "numeric"
-                            : "default")
-                        }
-                        maxLength={maxLength}
-                        onBlur={() => {
-                          clearTextDraft(id);
-                          setFocusedTextFieldId((currentId) =>
-                            currentId === id ? null : currentId,
-                          );
-                        }}
-                        onChangeText={(nextValue) => {
-                          setTextDraft(id, nextValue);
-                          onChangeText(nextValue);
-                        }}
-                        onFocus={() => {
-                          setFocusedTextFieldId(id);
-                          setTextDraft(id, value);
-                        }}
-                        placeholder={placeholder}
-                        placeholderTextColor={"#6b7280"}
-                        selectTextOnFocus={true}
-                        value={displayValue}
-                      />
+                      editable={!disabled}
+                      inputMode={inputMode}
+                      keyboardType={
+                        keyboardType ??
+                        (typeof fallbackValue === "number"
+                          ? "numeric"
+                          : "default")
+                      }
+                      maxLength={maxLength}
+                      onBlur={() => {
+                        clearTextDraft(id);
+                        setFocusedTextFieldId((currentId) =>
+                          currentId === id ? null : currentId,
+                        );
+                      }}
+                      onChangeText={(nextValue) => {
+                        setTextDraft(id, nextValue);
+                        onChangeText(nextValue);
+                      }}
+                      onFocus={() => {
+                        setFocusedTextFieldId(id);
+                        setTextDraft(id, value);
+                      }}
+                      placeholder={placeholder}
+                      placeholderTextColor={"#6b7280"}
+                      pointerEvents={disabled ? "none" : "auto"}
+                      selectTextOnFocus={!disabled}
+                      showSoftInputOnFocus={!disabled}
+                      value={displayValue}
+                    />
 
-                      {label && (
+                    {label &&
+                      (disabled ? (
+                        <View
+                          className={
+                            "absolute bottom-0 right-4 top-0 justify-center"
+                          }
+                          pointerEvents={"none"}
+                        >
+                          <Text
+                            className={clsx(
+                              "text-xl leading-[20px] font-semibold text-foreground",
+                            )}
+                            numberOfLines={1}
+                          >
+                            {label}
+                          </Text>
+                        </View>
+                      ) : (
                         <Pressable
                           className={
                             "absolute bottom-0 right-4 top-0 justify-center"
@@ -841,8 +859,22 @@ const PickerInputModalRoot = React.forwardRef<
                             {label}
                           </Text>
                         </Pressable>
-                      )}
-                    </View>
+                      ))}
+                  </View>
+                );
+
+                return (
+                  <View
+                    key={id}
+                    className={"w-full items-center justify-center"}
+                  >
+                    {disabled ? (
+                      <Pressable className={"w-full"} onPress={openPickerView}>
+                        {inputField}
+                      </Pressable>
+                    ) : (
+                      inputField
+                    )}
                   </View>
                 );
               };
@@ -873,6 +905,7 @@ const PickerInputModalRoot = React.forwardRef<
                       group.keyboardType ?? sourceInput?.keyboardType,
                       group.inputMode ?? sourceInput?.inputMode,
                       sourceInput?.value,
+                      group.disabled ?? sourceInput?.disabled,
                     )}
                   </View>
                 );
@@ -891,6 +924,7 @@ const PickerInputModalRoot = React.forwardRef<
                       input.keyboardType,
                       input.inputMode,
                       input.value,
+                      input.disabled,
                     ),
                   )}
                 </View>

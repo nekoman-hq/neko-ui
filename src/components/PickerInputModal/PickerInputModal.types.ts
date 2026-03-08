@@ -20,6 +20,7 @@ export interface PickerInputModalInputProps<
   onValueChange(value: T): void;
   data: readonly PickerInputModalDataItem<T>[];
   label?: string;
+  disabled?: boolean;
   textInput?: boolean;
   placeholder?: string;
   keyboardType?: KeyboardTypeOptions;
@@ -40,6 +41,7 @@ export interface PickerInputModalInputProps<
 export interface PickerInputModalInputGroupProps {
   children?: React.ReactNode;
   label?: string;
+  disabled?: boolean;
   textInputValue?: string;
   onTextInputValueChange?: (value: string) => void;
   placeholder?: string;

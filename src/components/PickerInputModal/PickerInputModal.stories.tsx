@@ -84,6 +84,36 @@ export const MultipleInputs = {
   },
 };
 
+export const DisabledTextInput = {
+  render: () => {
+    const [weight, setWeight] = useState(10);
+    const [reps, setReps] = useState(12);
+
+    return (
+      <StoryFrame>
+        <PickerInputModal>
+          <PickerInputModalInput
+            value={weight}
+            onValueChange={setWeight}
+            data={wholeNumberData}
+            disabled={true}
+            keyboardType={"numeric"}
+            label={"kg"}
+          />
+
+          <PickerInputModalInput
+            value={reps}
+            onValueChange={setReps}
+            data={repsData}
+            keyboardType={"numeric"}
+            label={"reps"}
+          />
+        </PickerInputModal>
+      </StoryFrame>
+    );
+  },
+};
+
 export const GroupedDecimal = {
   render: () => {
     const [weight, setWeight] = useState(10);

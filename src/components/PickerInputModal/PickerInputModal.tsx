@@ -516,7 +516,7 @@ const PickerInputModalRoot = React.forwardRef<
     setKeyboardVisible(true);
     setPickerInteractive(false);
     bottomSheetRef.current?.snapToPosition(
-      keyboardHeightRef.current + bottom + 10,
+      keyboardHeightRef.current + collapsedHeight + bottom + 20,
       {
         duration: 300,
       },

@@ -191,7 +191,9 @@ export const WithContent = {
 
           <PickerInputModalContent className={"gap-3"}>
             <View
-              className={"rounded-[20px] border border-card bg-card p-4  py-20"}
+              className={
+                "rounded-[20px] border border-card bg-card p-4  py-[100px]"
+              }
             >
               <Text className={"text-base font-semibold text-foreground"}>
                 Quick summary

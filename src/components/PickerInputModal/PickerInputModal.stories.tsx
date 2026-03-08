@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from "react";
 import { Meta } from "@storybook/react-native";
-import { View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 import {
   PickerInputModal,
+  PickerInputModalContent,
   PickerInputModalInput,
   PickerInputModalInputGroup,
 } from "./PickerInputModal";
+import { Button, ButtonText } from "../Button";
 
 const wholeNumberData = Array.from({ length: 201 }, (_, index) => index);
 const repsData = Array.from({ length: 51 }, (_, index) => index);
@@ -157,6 +159,57 @@ export const GroupedDecimal = {
             keyboardType={"numeric"}
             label={"reps"}
           />
+        </PickerInputModal>
+      </StoryFrame>
+    );
+  },
+};
+
+export const WithContent = {
+  render: () => {
+    const [weight, setWeight] = useState(10);
+    const [reps, setReps] = useState(12);
+
+    return (
+      <StoryFrame>
+        <PickerInputModal>
+          <PickerInputModalInput
+            value={weight}
+            onValueChange={setWeight}
+            data={wholeNumberData}
+            keyboardType={"numeric"}
+            label={"kg"}
+          />
+
+          <PickerInputModalInput
+            value={reps}
+            onValueChange={setReps}
+            data={repsData}
+            keyboardType={"numeric"}
+            label={"reps"}
+          />
+
+          <PickerInputModalContent className={"gap-3"}>
+            <View
+              className={"rounded-[20px] border border-card bg-card p-4  py-20"}
+            >
+              <Text className={"text-base font-semibold text-foreground"}>
+                Quick summary
+              </Text>
+              <Text className={"mt-1 text-sm text-muted-foreground"}>
+                {weight} kg x {reps} reps
+              </Text>
+            </View>
+
+            <Button
+              onPress={() => Alert.alert("Saved")}
+              className={"items-center rounded-[20px] bg-foreground p-4"}
+            >
+              <ButtonText className={"text-base font-semibold text-background"}>
+                Save Set
+              </ButtonText>
+            </Button>
+          </PickerInputModalContent>
         </PickerInputModal>
       </StoryFrame>
     );

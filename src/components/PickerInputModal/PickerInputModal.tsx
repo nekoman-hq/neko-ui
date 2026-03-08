@@ -1,4 +1,8 @@
-import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
+import BottomSheet, {
+  BottomSheetFooter,
+  BottomSheetView,
+  type BottomSheetFooterProps,
+} from "@gorhom/bottom-sheet";
 import { PickerItem } from "@quidone/react-native-wheel-picker";
 import clsx from "clsx";
 import React, {
@@ -23,10 +27,12 @@ import Animated, {
   useAnimatedKeyboard,
   useAnimatedStyle,
   useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WheelPicker } from "@/src/components/WheelPicker";
 import type {
+  PickerInputModalContentProps,
   PickerInputModalDataItem,
   PickerInputModalInputGroupProps,
   PickerInputModalInputProps,
@@ -34,7 +40,6 @@ import type {
   PickerInputModalRef,
   PickerInputModalValue,
 } from "./PickerInputModal.types";
-import { useComponentInterop } from "@/src/hooks/Classname.hooks";
 
 type AnyInputProps = PickerInputModalInputProps<PickerInputModalValue>;
 
@@ -48,11 +53,17 @@ type ParsedGroup = Omit<PickerInputModalInputGroupProps, "children"> & {
   inputs: ParsedInput[];
 };
 
+type ParsedContent = Omit<PickerInputModalContentProps, "children"> & {
+  id: string;
+  children?: React.ReactNode;
+};
+
 type PickerInputModalCompoundComponent = React.ForwardRefExoticComponent<
   PickerInputModalProps & React.RefAttributes<PickerInputModalRef>
 > & {
   Input: typeof PickerInputModalInput;
   InputGroup: typeof PickerInputModalInputGroup;
+  Content: typeof PickerInputModalContent;
 };
 
 const HANDLE_AND_PADDING = 52;
@@ -88,6 +99,10 @@ function PickerInputModalInput(
 }
 
 function PickerInputModalInputGroup(_props: PickerInputModalInputGroupProps) {
+  return null;
+}
+
+function PickerInputModalContent(_props: PickerInputModalContentProps) {
   return null;
 }
 
@@ -169,6 +184,12 @@ function isInputGroupElement(
   return (
     React.isValidElement(child) && child.type === PickerInputModalInputGroup
   );
+}
+
+function isContentElement(
+  child: React.ReactNode,
+): child is React.ReactElement<PickerInputModalContentProps> {
+  return React.isValidElement(child) && child.type === PickerInputModalContent;
 }
 
 function parseInputChildren(
@@ -270,6 +291,40 @@ function parseGroups(
   return groups;
 }
 
+function parseContent(
+  children: React.ReactNode,
+  pathPrefix: number[] = [],
+): ParsedContent | null {
+  let content: ParsedContent | null = null;
+
+  React.Children.forEach(children, (child, index) => {
+    if (!React.isValidElement(child) || content) {
+      return;
+    }
+
+    const currentPath = [...pathPrefix, index];
+
+    if (child.type === React.Fragment) {
+      content = parseContent(
+        (child.props as { children?: React.ReactNode }).children,
+        currentPath,
+      );
+      return;
+    }
+
+    if (!isContentElement(child)) {
+      return;
+    }
+
+    content = {
+      ...child.props,
+      id: createNodeId("content", currentPath, child.key?.toString()),
+    };
+  });
+
+  return content;
+}
+
 function hasSharedTextField(group: ParsedGroup) {
   return (
     group.textInputValue !== undefined ||
@@ -290,8 +345,10 @@ const PickerInputModalRoot = React.forwardRef<
   const { state } = useAnimatedKeyboard();
 
   const groups = useMemo(() => parseGroups(children), [children]);
+  const content = useMemo(() => parseContent(children), [children]);
   const [collapsedHeight, setCollapsedHeight] = useState(0);
   const [pickerHeight, setPickerHeight] = useState(0);
+  const [footerHeight, setFooterHeight] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [pickerInteractive, setPickerInteractive] = useState(true);
   const [textDrafts, setTextDrafts] = useState<Record<string, string>>({});
@@ -343,12 +400,17 @@ const PickerInputModalRoot = React.forwardRef<
     pickerOpenTimeoutRef.current = null;
   }, []);
 
-  const collapsedSnapPoint =
-    (collapsedHeight > 0 ? collapsedHeight + HANDLE_AND_PADDING : 0) + bottom;
-  const expandedSnapPoint =
-    (pickerHeight > 0
-      ? pickerHeight + HANDLE_AND_PADDING
-      : collapsedSnapPoint) + bottom;
+  const sheetBottomSpacing = content ? 0 : bottom;
+  const collapsedBaseHeight =
+    collapsedHeight > 0
+      ? collapsedHeight + HANDLE_AND_PADDING + footerHeight
+      : 0;
+  const expandedBaseHeight =
+    pickerHeight > 0
+      ? pickerHeight + HANDLE_AND_PADDING + footerHeight
+      : collapsedBaseHeight;
+  const collapsedSnapPoint = collapsedBaseHeight + sheetBottomSpacing;
+  const expandedSnapPoint = expandedBaseHeight + sheetBottomSpacing;
 
   const snapPoints = useMemo(() => {
     if (collapsedSnapPoint <= 0) {
@@ -396,6 +458,14 @@ const PickerInputModalRoot = React.forwardRef<
     const opacity = interpolate(animatedIndex.value, [0, 1], [0, 1], "clamp");
     return { opacity, zIndex: opacity === 0 ? -1 : 1 };
   });
+
+  const footerAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: withTiming(keyboardVisible ? 0 : 1, {
+        duration: 200,
+      }),
+    };
+  }, [keyboardVisible]);
 
   const setTextDraft = useCallback((id: string, value: string) => {
     setTextDrafts((currentDrafts) => {
@@ -476,7 +546,7 @@ const PickerInputModalRoot = React.forwardRef<
       expandForKeyboard();
     });
 
-    const keyboardDidHide = Keyboard.addListener("keyboardDidHide", () => {
+    const keyboardDidHide = Keyboard.addListener("keyboardWillHide", () => {
       setKeyboardVisible(false);
       clearKeyboardHideTimeout();
 
@@ -498,6 +568,40 @@ const PickerInputModalRoot = React.forwardRef<
       keyboardWillHide.remove();
     };
   }, [clearKeyboardHideTimeout, clearPickerOpenTimeout, expandForKeyboard]);
+
+  const handleFooterLayout = useCallback(
+    (nextHeight: number) => {
+      if (nextHeight > 0 && nextHeight !== footerHeight) {
+        setFooterHeight(nextHeight);
+      }
+    },
+    [footerHeight],
+  );
+
+  const renderFooter = useCallback(
+    ({ animatedFooterPosition }: BottomSheetFooterProps) => {
+      if (!content) {
+        return null;
+      }
+
+      return (
+        <BottomSheetFooter animatedFooterPosition={animatedFooterPosition}>
+          <Animated.View style={footerAnimatedStyle}>
+            <View
+              className={clsx("bg-background px-5 pt-4", content.className)}
+              onLayout={(event) => {
+                handleFooterLayout(event.nativeEvent.layout.height);
+              }}
+              style={{ paddingBottom: bottom }}
+            >
+              {content.children}
+            </View>
+          </Animated.View>
+        </BottomSheetFooter>
+      );
+    },
+    [bottom, content, footerAnimatedStyle, handleFooterLayout],
+  );
 
   const renderMeasurement = () => (
     <View
@@ -578,10 +682,27 @@ const PickerInputModalRoot = React.forwardRef<
           </View>
         ))}
       </View>
+
+      {content ? (
+        <View
+          className={clsx("w-full bg-background px-5 pt-4", content.className)}
+          onLayout={(event) => {
+            handleFooterLayout(event.nativeEvent.layout.height);
+          }}
+          style={{ paddingBottom: bottom }}
+        >
+          {content.children}
+        </View>
+      ) : null}
     </View>
   );
 
-  if (groups.length === 0 || snapPoints.length === 0 || contentHeight === 0) {
+  if (
+    groups.length === 0 ||
+    snapPoints.length === 0 ||
+    contentHeight === 0 ||
+    (content && footerHeight === 0)
+  ) {
     return renderMeasurement();
   }
 
@@ -605,12 +726,14 @@ const PickerInputModalRoot = React.forwardRef<
       index={0}
       keyboardBehavior={"interactive"}
       backgroundStyle={SHEET_BACKGROUND_STYLE}
+      footerComponent={content ? renderFooter : undefined}
       ref={assignBottomSheetRef}
       snapPoints={snapPoints}
       style={BOTTOM_SHEET_STYLE}
     >
       <BottomSheetView
         className={"w-full items-center bg-background px-5 pb-4"}
+        enableFooterMarginAdjustment={Boolean(content)}
       >
         <View
           className={"relative w-full bg-background"}
@@ -825,8 +948,13 @@ PickerInputModalRoot.displayName = "PickerInputModal";
 export const PickerInputModal = Object.assign(PickerInputModalRoot, {
   Input: PickerInputModalInput,
   InputGroup: PickerInputModalInputGroup,
+  Content: PickerInputModalContent,
 }) as PickerInputModalCompoundComponent;
 
-export { PickerInputModalInput, PickerInputModalInputGroup };
+export {
+  PickerInputModalContent,
+  PickerInputModalInput,
+  PickerInputModalInputGroup,
+};
 
 export default PickerInputModal;

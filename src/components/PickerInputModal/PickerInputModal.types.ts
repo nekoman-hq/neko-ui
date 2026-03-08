@@ -48,6 +48,11 @@ export interface PickerInputModalInputGroupProps {
   maxLength?: number;
 }
 
+export interface PickerInputModalContentProps {
+  children?: React.ReactNode;
+  className?: string;
+}
+
 export interface PickerInputModalProps {
   children?: React.ReactNode;
 }

@@ -5,7 +5,7 @@ import React, {
   useContext,
   useMemo,
 } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { WheelPickerV2Props } from "./WheelPickerV2.types";
 import {
   FlashList,
@@ -14,7 +14,6 @@ import {
 } from "@shopify/flash-list";
 import Animated, {
   createAnimatedComponent,
-  interpolate,
   SharedValue,
   useAnimatedRef,
   useAnimatedScrollHandler,
@@ -25,18 +24,37 @@ import Animated, {
 import { scheduleOnUI } from "react-native-worklets";
 
 const AnimatedFlashList = createAnimatedComponent(FlashList<number>);
-const AnimatedPressable = createAnimatedComponent(Pressable);
+const AnimatedView = Animated.View;
 
 const DATA = Array.from({ length: 1000 }, (_, i) => i);
-const ITEM_HEIGHT = 40;
+const ITEM_HEIGHT = 45;
+
+const ITEM_CONTAINER_STYLE = {
+  height: ITEM_HEIGHT,
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+};
+
+const ITEM_TEXT_STYLE = {
+  fontSize: 18,
+  fontWeight: "600" as const,
+  color: "#fff",
+};
+
+const HIDDEN_STYLE = {
+  opacity: 0,
+} as const;
 
 interface PickerContextType {
   ref: ReturnType<typeof useAnimatedRef<FlashListRef<number>>>;
   scrollY: SharedValue<number>;
+  scrollIndex: SharedValue<number>;
   visibleItemCount: number;
   paddingItemNumber: number;
   radius: number;
   projectedHeight: number;
+  visibleRange: number;
+  opacityRange: number;
 }
 
 const PickerContext = createContext<PickerContextType | null>(null);
@@ -47,86 +65,73 @@ const usePickerContext = () => {
   return v;
 };
 
-type WheelItemProps = ListRenderItemInfo<number>;
+const useWheelItemStyle = (index: number) => {
+  const { scrollIndex, radius, visibleRange, opacityRange } =
+    usePickerContext();
 
-const WheelItem = ({ item, index, target }: WheelItemProps) => {
-  const { scrollY, paddingItemNumber, radius, ref } = usePickerContext();
+  return useAnimatedStyle(() => {
+    const relativeIndex = index - scrollIndex.value;
 
-  // Make non-visible measurement renders as cheap as possible.
-  if (target === "Measurement") {
-    return;
-  }
-
-  const goalPositionY = index * ITEM_HEIGHT;
-
-  const animatedStyle = useAnimatedStyle(() => {
-    const distance = goalPositionY - scrollY.value;
-    const visibleRange = (paddingItemNumber + 1) * ITEM_HEIGHT;
-
-    if (Math.abs(distance) > visibleRange) {
-      return {
-        opacity: 0,
-      };
+    if (Math.abs(relativeIndex) > visibleRange) {
+      return HIDDEN_STYLE;
     }
 
-    const opacityThreshold = paddingItemNumber * ITEM_HEIGHT;
-
-    const opacity = interpolate(
-      scrollY.value,
-      [
-        goalPositionY - opacityThreshold,
-        goalPositionY,
-        goalPositionY + opacityThreshold,
-      ],
-      [0.25, 1, 0.25],
-      "clamp",
-    );
-
+    const distance = relativeIndex * ITEM_HEIGHT;
     const theta = distance / radius;
     const translateY = radius * Math.sin(theta) - distance;
-    const rotate = -(theta * 180) / Math.PI;
+
+    const absRelative = Math.abs(relativeIndex);
+    const opacity =
+      absRelative >= opacityRange
+        ? 0.25
+        : 1 - (absRelative / opacityRange) * 0.75;
 
     return {
       opacity,
-      transform: [{ translateY }, { rotateX: `${rotate}deg` }],
+      transform: [
+        { perspective: 1000 },
+        { translateY },
+        { rotateX: `${(-theta * 180) / Math.PI}deg` },
+      ],
     };
-  }, [goalPositionY, paddingItemNumber, radius]);
-
-  const onPress = useCallback(() => {
-    scheduleOnUI(() => scrollTo(ref, 0, goalPositionY, true));
-  }, [goalPositionY]);
-
-  return (
-    <AnimatedPressable
-      onPress={onPress}
-      style={[
-        {
-          height: ITEM_HEIGHT,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        animatedStyle,
-      ]}
-    >
-      <Text style={{ fontSize: 18, fontWeight: "600", color: "#fff" }}>
-        {item}
-      </Text>
-    </AnimatedPressable>
-  );
+  }, [index, radius, visibleRange, opacityRange]);
 };
 
+type WheelItemProps = ListRenderItemInfo<number>;
+
+const WheelLabel = memo(({ value }: { value: number }) => {
+  return <Text style={ITEM_TEXT_STYLE}>{value}</Text>;
+});
+
+const WheelItem = memo(({ item, index, target }: WheelItemProps) => {
+  if (target === "Measurement") {
+    return null;
+  }
+
+  const animatedStyle = useWheelItemStyle(index);
+
+  return (
+    <AnimatedView style={[ITEM_CONTAINER_STYLE, animatedStyle]}>
+      <WheelLabel value={item} />
+    </AnimatedView>
+  );
+});
+
 const List = () => {
-  const { ref, scrollY, paddingItemNumber, projectedHeight } =
-    usePickerContext();
+  const { ref, scrollY, scrollIndex, projectedHeight } = usePickerContext();
 
   const onScroll = useAnimatedScrollHandler({
     onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
+      const y = event.contentOffset.y;
+      scrollY.value = y;
+      scrollIndex.value = y / ITEM_HEIGHT;
     },
   });
 
   const renderItem = useCallback(
-    (info: ListRenderItemInfo<number>) => <WheelItem {...info} />,
+    (info: ListRenderItemInfo<number>) => (
+      <WheelItem item={info.item} index={info.index} target={info.target} />
+    ),
     [],
   );
 
@@ -149,7 +154,8 @@ const List = () => {
       snapToInterval={ITEM_HEIGHT}
       decelerationRate={0.9938}
       contentContainerStyle={contentContainerStyle}
-      drawDistance={ITEM_HEIGHT * 4}
+      drawDistance={ITEM_HEIGHT * 2}
+      maxItemsInRecyclePool={8}
       maintainVisibleContentPosition={{ disabled: true }}
     />
   );
@@ -158,32 +164,42 @@ const List = () => {
 const PickerProvider = ({ children }: { children: React.ReactNode }) => {
   const ref = useAnimatedRef<FlashListRef<number>>();
   const scrollY = useSharedValue(0);
+  const scrollIndex = useSharedValue(0);
 
   const visibleItemCount = 5;
   const paddingItemNumber = Math.floor(visibleItemCount / 2);
-  const angle = 110;
+  const angle = 160;
   const angleRad = (angle * Math.PI) / 180;
 
   const arcLength = visibleItemCount * ITEM_HEIGHT;
   const radius = arcLength / angleRad;
   const projectedHeight = 2 * radius * Math.sin(angleRad / 2);
 
+  const visibleRange = paddingItemNumber + 1;
+  const opacityRange = paddingItemNumber;
+
   const value = useMemo<PickerContextType>(
     () => ({
       ref,
       scrollY,
+      scrollIndex,
       visibleItemCount,
       paddingItemNumber,
       radius,
       projectedHeight,
+      visibleRange,
+      opacityRange,
     }),
     [
       ref,
       scrollY,
+      scrollIndex,
       visibleItemCount,
       paddingItemNumber,
       radius,
       projectedHeight,
+      visibleRange,
+      opacityRange,
     ],
   );
 
@@ -194,7 +210,6 @@ const PickerProvider = ({ children }: { children: React.ReactNode }) => {
           width: 100,
           height: projectedHeight,
           margin: 100,
-          backgroundColor: "#334134",
           overflow: "hidden",
         }}
       >

@@ -4,8 +4,9 @@ import React, {
   useCallback,
   useContext,
   useMemo,
+  useRef,
 } from "react";
-import { Pressable, Text, View } from "react-native";
+import { LayoutChangeEvent, Text, View } from "react-native";
 import type { WheelPickerV2Props } from "./WheelPickerV2.types";
 import {
   FlashList,
@@ -28,6 +29,10 @@ const AnimatedView = Animated.View;
 
 const DATA = Array.from({ length: 1000 }, (_, i) => i);
 const ITEM_HEIGHT = 45;
+
+const TAP_MAX_DURATION_MS = 220;
+const TAP_MAX_MOVE_PX = 8;
+const TAP_EXTEND_Y = 20;
 
 const ITEM_CONTAINER_STYLE = {
   height: ITEM_HEIGHT,
@@ -63,6 +68,11 @@ const usePickerContext = () => {
   const v = useContext(PickerContext);
   if (!v) throw new Error("PickerContext missing");
   return v;
+};
+
+const clamp = (value: number, min: number, max: number) => {
+  "worklet";
+  return Math.min(Math.max(value, min), max);
 };
 
 const useWheelItemStyle = (index: number) => {
@@ -161,6 +171,184 @@ const List = () => {
   );
 };
 
+const getDeltaIndexFromOffset = (
+  offsetFromCenter: number,
+  projectedHeight: number,
+) => {
+  const abs = Math.abs(offsetFromCenter);
+  const direction = offsetFromCenter < 0 ? -1 : 1;
+
+  const centerDeadZone = ITEM_HEIGHT * 0.32;
+
+  const bZoneOuterBoundary = ITEM_HEIGHT * 1.55;
+
+  const aZoneStart = bZoneOuterBoundary;
+
+  const virtualOuterBoundary = projectedHeight / 2 + ITEM_HEIGHT * 0.75;
+
+  if (abs <= centerDeadZone) {
+    return 0;
+  }
+
+  if (abs <= bZoneOuterBoundary) {
+    return 1 * direction;
+  }
+
+  if (abs <= virtualOuterBoundary) {
+    return 2 * direction;
+  }
+
+  return 2 * direction;
+};
+const PickerViewport = ({ children }: { children: React.ReactNode }) => {
+  const { ref, scrollIndex, projectedHeight } = usePickerContext();
+
+  const touchContainerRef = useRef<View | null>(null);
+  const touchContainerTopRef = useRef(0);
+
+  const touchStartYRef = useRef(0);
+  const touchStartXRef = useRef(0);
+  const touchStartTimeRef = useRef(0);
+  const movedTooFarRef = useRef(false);
+  const isMultiTouchRef = useRef(false);
+
+  const extendedHeight = projectedHeight + TAP_EXTEND_Y * 2;
+
+  const measureContainer = useCallback(() => {
+    touchContainerRef.current?.measureInWindow((_x, y) => {
+      touchContainerTopRef.current = y;
+    });
+  }, []);
+
+  const resetTouchState = useCallback(() => {
+    movedTooFarRef.current = false;
+    isMultiTouchRef.current = false;
+    touchStartTimeRef.current = 0;
+    touchStartXRef.current = 0;
+    touchStartYRef.current = 0;
+  }, []);
+
+  const handleLayout = useCallback(() => {
+    requestAnimationFrame(measureContainer);
+  }, [measureContainer]);
+
+  const handleTouchStart = useCallback(
+    (event: any) => {
+      measureContainer();
+
+      const { nativeEvent } = event;
+
+      isMultiTouchRef.current = (nativeEvent.touches?.length ?? 1) > 1;
+      movedTooFarRef.current = false;
+      touchStartTimeRef.current = Date.now();
+      touchStartXRef.current = nativeEvent.pageX;
+      touchStartYRef.current = nativeEvent.pageY;
+    },
+    [measureContainer],
+  );
+
+  const handleTouchMove = useCallback((event: any) => {
+    if (isMultiTouchRef.current) {
+      return;
+    }
+
+    const { nativeEvent } = event;
+
+    if ((nativeEvent.touches?.length ?? 1) > 1) {
+      isMultiTouchRef.current = true;
+      return;
+    }
+
+    const dx = nativeEvent.pageX - touchStartXRef.current;
+    const dy = nativeEvent.pageY - touchStartYRef.current;
+
+    if (Math.abs(dx) > TAP_MAX_MOVE_PX || Math.abs(dy) > TAP_MAX_MOVE_PX) {
+      movedTooFarRef.current = true;
+    }
+  }, []);
+
+  const handleTouchCancel = useCallback(() => {
+    resetTouchState();
+  }, [resetTouchState]);
+
+  const handleTouchEnd = useCallback(
+    (event: any) => {
+      const duration = Date.now() - touchStartTimeRef.current;
+
+      if (
+        isMultiTouchRef.current ||
+        movedTooFarRef.current ||
+        duration > TAP_MAX_DURATION_MS
+      ) {
+        resetTouchState();
+        return;
+      }
+
+      const pageY = event.nativeEvent.pageY;
+
+      // Y relativ zur vergrößerten Touch-Fläche
+      const localExtendedY = pageY - touchContainerTopRef.current;
+
+      // In das Koordinatensystem der sichtbaren Picker-Fläche zurückschieben
+      const localY = localExtendedY - TAP_EXTEND_Y;
+
+      const centerY = projectedHeight / 2;
+      const offsetFromCenter = localY - centerY;
+
+      const deltaIndex = getDeltaIndexFromOffset(
+        offsetFromCenter,
+        projectedHeight,
+      );
+
+      if (deltaIndex === 0) {
+        resetTouchState();
+        return;
+      }
+
+      const currentIndex = Math.round(scrollIndex.value);
+      const targetIndex = Math.max(
+        0,
+        Math.min(DATA.length - 1, currentIndex + deltaIndex),
+      );
+      const targetY = targetIndex * ITEM_HEIGHT;
+
+      scheduleOnUI(() => {
+        "worklet";
+        scrollTo(ref, 0, targetY, true);
+      });
+
+      resetTouchState();
+    },
+    [projectedHeight, ref, resetTouchState, scrollIndex],
+  );
+
+  return (
+    <View
+      ref={touchContainerRef}
+      style={{
+        width: 100,
+        height: extendedHeight,
+        margin: 100 - TAP_EXTEND_Y,
+      }}
+      onLayout={handleLayout}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchCancel}
+    >
+      <View
+        style={{
+          marginTop: TAP_EXTEND_Y,
+          width: 100,
+          height: projectedHeight,
+          overflow: "hidden",
+        }}
+      >
+        {children}
+      </View>
+    </View>
+  );
+};
 const PickerProvider = ({ children }: { children: React.ReactNode }) => {
   const ref = useAnimatedRef<FlashListRef<number>>();
   const scrollY = useSharedValue(0);
@@ -168,7 +356,7 @@ const PickerProvider = ({ children }: { children: React.ReactNode }) => {
 
   const visibleItemCount = 5;
   const paddingItemNumber = Math.floor(visibleItemCount / 2);
-  const angle = 160;
+  const angle = 150;
   const angleRad = (angle * Math.PI) / 180;
 
   const arcLength = visibleItemCount * ITEM_HEIGHT;
@@ -205,16 +393,7 @@ const PickerProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <PickerContext.Provider value={value}>
-      <View
-        style={{
-          width: 100,
-          height: projectedHeight,
-          margin: 100,
-          overflow: "hidden",
-        }}
-      >
-        {children}
-      </View>
+      <PickerViewport>{children}</PickerViewport>
     </PickerContext.Provider>
   );
 };

@@ -20,3 +20,4 @@ export * from "./Header";
 export * from "./Example";
 export * from "./WheelPicker";
 export * from './PickerInputModal';
+export * from './WheelPickerV2';

@@ -6,15 +6,13 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import {
-  FlatList,
-  LayoutChangeEvent,
-  ListRenderItemInfo,
-  Text,
-  View,
-} from "react-native";
+import { Text, View } from "react-native";
 import type { WheelPickerV2Props } from "./WheelPickerV2.types";
-import { FlashList, FlashListRef } from "@shopify/flash-list";
+import {
+  FlashList,
+  type FlashListRef,
+  type ListRenderItemInfo,
+} from "@shopify/flash-list";
 import Animated, {
   createAnimatedComponent,
   SharedValue,
@@ -56,7 +54,7 @@ const HIDDEN_STYLE = {
 } as const;
 
 interface PickerContextType {
-  ref: AnimatedRef<FlatList<number>>;
+  ref: AnimatedRef<FlashListRef<number>>;
   scrollY: SharedValue<number>;
   scrollIndex: SharedValue<number>;
   visibleItemCount: number;
@@ -147,18 +145,20 @@ const List = () => {
   );
 
   return (
-    <Animated.FlatList
+    <AnimatedFlashList
       ref={ref}
-      windowSize={7}
       data={DATA}
-      renderItem={(item) => renderItem(item)}
+      renderItem={renderItem}
       keyExtractor={(item) => String(item)}
+      maintainVisibleContentPosition={{ disabled: true }}
       onScroll={onScroll}
       scrollEventThrottle={16}
       showsVerticalScrollIndicator={false}
       snapToInterval={ITEM_HEIGHT}
       decelerationRate={0.9938}
       contentContainerStyle={contentContainerStyle}
+      drawDistance={ITEM_HEIGHT * 4}
+      maxItemsInRecyclePool={8}
     />
   );
 };
@@ -343,11 +343,11 @@ const PickerViewport = ({ children }: { children: React.ReactNode }) => {
               style={{ flex: 1 }}
               colors={[
                 "rgba(0,0,0,0)",
-                "rgba(0,0,0,0.1)",
+                "rgba(0,0,0,0.2)",
                 "rgba(0,0,0,0.7)",
                 "rgba(0,0,0,1)",
                 "rgba(0,0,0,0.7)",
-                "rgba(0,0,0,0.1)",
+                "rgba(0,0,0,0.2)",
                 "rgba(0,0,0,0)",
               ]}
               locations={[0, 0.08, 0.26, 0.5, 0.74, 0.92, 1]}
@@ -361,7 +361,7 @@ const PickerViewport = ({ children }: { children: React.ReactNode }) => {
   );
 };
 const PickerProvider = ({ children }: { children: React.ReactNode }) => {
-  const ref = useAnimatedRef<FlatList<number>>();
+  const ref = useAnimatedRef<FlashListRef<number>>();
   const scrollY = useSharedValue(0);
   const scrollIndex = useSharedValue(0);
 

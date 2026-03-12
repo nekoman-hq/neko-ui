@@ -6,13 +6,15 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { LayoutChangeEvent, Text, View } from "react-native";
-import type { WheelPickerV2Props } from "./WheelPickerV2.types";
 import {
-  FlashList,
-  FlashListRef,
+  FlatList,
+  LayoutChangeEvent,
   ListRenderItemInfo,
-} from "@shopify/flash-list";
+  Text,
+  View,
+} from "react-native";
+import type { WheelPickerV2Props } from "./WheelPickerV2.types";
+import { FlashList, FlashListRef } from "@shopify/flash-list";
 import Animated, {
   createAnimatedComponent,
   SharedValue,
@@ -21,6 +23,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   scrollTo,
+  AnimatedRef,
 } from "react-native-reanimated";
 import { scheduleOnUI } from "react-native-worklets";
 
@@ -51,7 +54,7 @@ const HIDDEN_STYLE = {
 } as const;
 
 interface PickerContextType {
-  ref: ReturnType<typeof useAnimatedRef<FlashListRef<number>>>;
+  ref: AnimatedRef<FlatList<number>>;
   scrollY: SharedValue<number>;
   scrollIndex: SharedValue<number>;
   visibleItemCount: number;
@@ -87,8 +90,9 @@ const useWheelItemStyle = (index: number) => {
     }
 
     const distance = relativeIndex * ITEM_HEIGHT;
-    const theta = distance / radius;
-    const translateY = radius * Math.sin(theta) - distance;
+    const theta = clamp(distance / radius, -Math.PI / 2, Math.PI / 2);
+
+    const translateY = Number((radius * Math.sin(theta) - distance).toFixed(2));
 
     const absRelative = Math.abs(relativeIndex);
     const opacity =
@@ -113,11 +117,7 @@ const WheelLabel = memo(({ value }: { value: number }) => {
   return <Text style={ITEM_TEXT_STYLE}>{value}</Text>;
 });
 
-const WheelItem = memo(({ item, index, target }: WheelItemProps) => {
-  if (target === "Measurement") {
-    return null;
-  }
-
+const WheelItem = memo(({ item, index }: WheelItemProps) => {
   const animatedStyle = useWheelItemStyle(index);
 
   return (
@@ -139,9 +139,7 @@ const List = () => {
   });
 
   const renderItem = useCallback(
-    (info: ListRenderItemInfo<number>) => (
-      <WheelItem item={info.item} index={info.index} target={info.target} />
-    ),
+    (info: ListRenderItemInfo<number>) => <WheelItem {...info} />,
     [],
   );
 
@@ -153,10 +151,11 @@ const List = () => {
   );
 
   return (
-    <AnimatedFlashList
+    <Animated.FlatList
       ref={ref}
+      windowSize={7}
       data={DATA}
-      renderItem={renderItem}
+      renderItem={(item) => renderItem(item)}
       keyExtractor={(item) => String(item)}
       onScroll={onScroll}
       scrollEventThrottle={16}
@@ -164,9 +163,6 @@ const List = () => {
       snapToInterval={ITEM_HEIGHT}
       decelerationRate={0.9938}
       contentContainerStyle={contentContainerStyle}
-      drawDistance={ITEM_HEIGHT * 2}
-      maxItemsInRecyclePool={8}
-      maintainVisibleContentPosition={{ disabled: true }}
     />
   );
 };
@@ -328,7 +324,7 @@ const PickerViewport = ({ children }: { children: React.ReactNode }) => {
       style={{
         width: 100,
         height: extendedHeight,
-        margin: 100 - TAP_EXTEND_Y,
+        marginVertical: 100 - TAP_EXTEND_Y,
       }}
       onLayout={handleLayout}
       onTouchStart={handleTouchStart}
@@ -350,21 +346,21 @@ const PickerViewport = ({ children }: { children: React.ReactNode }) => {
   );
 };
 const PickerProvider = ({ children }: { children: React.ReactNode }) => {
-  const ref = useAnimatedRef<FlashListRef<number>>();
+  const ref = useAnimatedRef<FlatList<number>>();
   const scrollY = useSharedValue(0);
   const scrollIndex = useSharedValue(0);
 
   const visibleItemCount = 5;
   const paddingItemNumber = Math.floor(visibleItemCount / 2);
-  const angle = 150;
+  const angle = 160;
   const angleRad = (angle * Math.PI) / 180;
 
   const arcLength = visibleItemCount * ITEM_HEIGHT;
   const radius = arcLength / angleRad;
   const projectedHeight = 2 * radius * Math.sin(angleRad / 2);
 
-  const visibleRange = paddingItemNumber + 1;
-  const opacityRange = paddingItemNumber;
+  const visibleRange = paddingItemNumber + 2;
+  const opacityRange = paddingItemNumber + 1;
 
   const value = useMemo<PickerContextType>(
     () => ({

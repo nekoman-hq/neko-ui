@@ -26,6 +26,8 @@ import Animated, {
   AnimatedRef,
 } from "react-native-reanimated";
 import { scheduleOnUI } from "react-native-worklets";
+import { LinearGradient } from "expo-linear-gradient";
+import MaskedView from "@react-native-masked-view/masked-view";
 
 const AnimatedFlashList = createAnimatedComponent(FlashList<number>);
 const AnimatedView = Animated.View;
@@ -94,14 +96,8 @@ const useWheelItemStyle = (index: number) => {
 
     const translateY = Number((radius * Math.sin(theta) - distance).toFixed(2));
 
-    const absRelative = Math.abs(relativeIndex);
-    const opacity =
-      absRelative >= opacityRange
-        ? 0.25
-        : 1 - (absRelative / opacityRange) * 0.75;
-
     return {
-      opacity,
+      opacity: 1,
       transform: [
         { perspective: 1000 },
         { translateY },
@@ -340,7 +336,26 @@ const PickerViewport = ({ children }: { children: React.ReactNode }) => {
           overflow: "hidden",
         }}
       >
-        {children}
+        <MaskedView
+          style={{ flex: 1 }}
+          maskElement={
+            <LinearGradient
+              style={{ flex: 1 }}
+              colors={[
+                "rgba(0,0,0,0)",
+                "rgba(0,0,0,0.1)",
+                "rgba(0,0,0,0.7)",
+                "rgba(0,0,0,1)",
+                "rgba(0,0,0,0.7)",
+                "rgba(0,0,0,0.1)",
+                "rgba(0,0,0,0)",
+              ]}
+              locations={[0, 0.08, 0.26, 0.5, 0.74, 0.92, 1]}
+            />
+          }
+        >
+          {children}
+        </MaskedView>
       </View>
     </View>
   );

@@ -11,7 +11,7 @@ import {
 } from "@/src";
 
 const meta: Meta = {
-  title: "Components/WheelPicker",
+  title: "Deprecated/WheelPicker",
   component: WheelPicker,
   args: {},
 };

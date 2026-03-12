@@ -18,6 +18,6 @@ export * from "./ProgressCircle";
 export * from "./BarChart";
 export * from "./Header";
 export * from "./Example";
+export * from "../deprecated/WheelPicker2";
 export * from "./WheelPicker";
-export * from './PickerInputModal';
-export * from './WheelPickerV2';
+export * from "./PickerInputModal";

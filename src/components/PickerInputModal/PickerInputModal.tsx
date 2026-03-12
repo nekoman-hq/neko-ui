@@ -30,7 +30,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { WheelPicker } from "@/src/components/WheelPicker";
+import { WheelPicker2 } from "@/src/deprecated/WheelPicker2";
 import type {
   PickerInputModalContentProps,
   PickerInputModalDataItem,
@@ -679,7 +679,7 @@ const PickerInputModalRoot = React.forwardRef<
                 key={input.id}
                 className={"h-[180px] flex-1 justify-end align-bottom"}
               >
-                <WheelPicker
+                <WheelPicker2
                   className={"flex-1 justify-center h-[200px]"}
                   data={input.pickerData}
                   label={input.label}
@@ -953,7 +953,7 @@ const PickerInputModalRoot = React.forwardRef<
                 >
                   {group.inputs.map((input) => (
                     <View key={input.id} className={"h-[180px] flex-1"}>
-                      <WheelPicker
+                      <WheelPicker2
                         className={clsx(
                           "flex-1 justify-center  h-[200px]",
                           input.pickerClassName,

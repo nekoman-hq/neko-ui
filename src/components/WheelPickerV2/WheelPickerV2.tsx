@@ -6,7 +6,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { Text, View } from "react-native";
+import { Alert, Text, View } from "react-native";
 import type { WheelPickerV2Props } from "./WheelPickerV2.types";
 import {
   FlashList,
@@ -17,6 +17,7 @@ import Animated, {
   createAnimatedComponent,
   SharedValue,
   useAnimatedRef,
+  useAnimatedReaction,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
@@ -57,6 +58,9 @@ interface PickerContextType {
   ref: AnimatedRef<FlashListRef<number>>;
   scrollY: SharedValue<number>;
   scrollIndex: SharedValue<number>;
+  selectedIndex: SharedValue<number>;
+  value?: SharedValue<number>;
+  initialIndex: number;
   visibleItemCount: number;
   paddingItemNumber: number;
   radius: number;
@@ -76,6 +80,73 @@ const usePickerContext = () => {
 const clamp = (value: number, min: number, max: number) => {
   "worklet";
   return Math.min(Math.max(value, min), max);
+};
+
+const getClampedIndexForValue = (value: number) => {
+  "worklet";
+  return clamp(Math.round(value), 0, DATA.length - 1);
+};
+
+const getItemValueForIndex = (index: number) => {
+  "worklet";
+  return DATA[clamp(index, 0, DATA.length - 1)] ?? DATA[0];
+};
+
+const syncValueForIndex = (
+  value: SharedValue<number> | undefined,
+  index: number,
+) => {
+  "worklet";
+  if (!value) {
+    return;
+  }
+
+  const nextValue = getItemValueForIndex(index);
+
+  if (value.value !== nextValue) {
+    value.value = nextValue;
+  }
+};
+
+const commitOffset = (
+  offsetY: number,
+  scrollY: SharedValue<number>,
+  scrollIndex: SharedValue<number>,
+  selectedIndex: SharedValue<number>,
+  value: SharedValue<number> | undefined,
+) => {
+  "worklet";
+  const nextIndex = getClampedIndexForValue(offsetY / ITEM_HEIGHT);
+  const snappedOffsetY = nextIndex * ITEM_HEIGHT;
+
+  scrollY.value = snappedOffsetY;
+  scrollIndex.value = nextIndex;
+  selectedIndex.value = nextIndex;
+  syncValueForIndex(value, nextIndex);
+};
+
+const scrollToIndex = (
+  ref: AnimatedRef<FlashListRef<number>>,
+  index: number,
+  scrollY: SharedValue<number>,
+  scrollIndex: SharedValue<number>,
+  selectedIndex: SharedValue<number>,
+  value: SharedValue<number> | undefined,
+  animated: boolean,
+) => {
+  "worklet";
+  const nextIndex = clamp(index, 0, DATA.length - 1);
+  const nextOffsetY = nextIndex * ITEM_HEIGHT;
+
+  selectedIndex.value = nextIndex;
+  syncValueForIndex(value, nextIndex);
+
+  if (!animated) {
+    scrollY.value = nextOffsetY;
+    scrollIndex.value = nextIndex;
+  }
+
+  scrollTo(ref, 0, nextOffsetY, animated);
 };
 
 const useWheelItemStyle = (index: number) => {
@@ -122,7 +193,16 @@ const WheelItem = memo(({ item, index }: WheelItemProps) => {
 });
 
 const List = () => {
-  const { ref, scrollY, scrollIndex, projectedHeight } = usePickerContext();
+  const {
+    ref,
+    scrollY,
+    scrollIndex,
+    selectedIndex,
+    value: controlledValue,
+    projectedHeight,
+    initialIndex,
+  } = usePickerContext();
+  const didCorrectInitialOffsetRef = useRef(false);
 
   const onScroll = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -131,6 +211,35 @@ const List = () => {
       scrollIndex.value = y / ITEM_HEIGHT;
     },
   });
+
+  useAnimatedReaction(
+    () => scrollY.value,
+    (offsetY, previousOffsetY) => {
+      const nextIndex = getClampedIndexForValue(offsetY / ITEM_HEIGHT);
+      const snappedOffsetY = nextIndex * ITEM_HEIGHT;
+      const delta =
+        previousOffsetY === null || previousOffsetY === undefined
+          ? 0
+          : Math.abs(offsetY - previousOffsetY);
+      const isSettled = Math.abs(offsetY - snappedOffsetY) < 0.5 && delta < 0.5;
+      const isAlreadySynced =
+        selectedIndex.value === nextIndex &&
+        controlledValue?.value === getItemValueForIndex(nextIndex);
+
+      if (!isSettled || isAlreadySynced) {
+        return;
+      }
+
+      commitOffset(
+        offsetY,
+        scrollY,
+        scrollIndex,
+        selectedIndex,
+        controlledValue,
+      );
+    },
+    [controlledValue, scrollIndex, scrollY, selectedIndex],
+  );
 
   const renderItem = useCallback(
     (info: ListRenderItemInfo<number>) => <WheelItem {...info} />,
@@ -144,6 +253,27 @@ const List = () => {
     [projectedHeight],
   );
 
+  const handleCommitLayoutEffect = useCallback(() => {
+    if (didCorrectInitialOffsetRef.current) {
+      return;
+    }
+
+    didCorrectInitialOffsetRef.current = true;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollY.value = initialIndex * ITEM_HEIGHT;
+        scrollIndex.value = initialIndex;
+        selectedIndex.value = initialIndex;
+        ref.current?.scrollToOffset({
+          offset: initialIndex * ITEM_HEIGHT,
+          animated: false,
+          skipFirstItemOffset: true,
+        });
+      });
+    });
+  }, [initialIndex, ref, scrollIndex, scrollY, selectedIndex]);
+
   return (
     <AnimatedFlashList
       ref={ref}
@@ -151,6 +281,7 @@ const List = () => {
       renderItem={renderItem}
       keyExtractor={(item) => String(item)}
       maintainVisibleContentPosition={{ disabled: true }}
+      onCommitLayoutEffect={handleCommitLayoutEffect}
       onScroll={onScroll}
       scrollEventThrottle={16}
       showsVerticalScrollIndicator={false}
@@ -174,8 +305,6 @@ const getDeltaIndexFromOffset = (
 
   const bZoneOuterBoundary = ITEM_HEIGHT * 1.55;
 
-  const aZoneStart = bZoneOuterBoundary;
-
   const virtualOuterBoundary = projectedHeight / 2 + ITEM_HEIGHT * 0.75;
 
   if (abs <= centerDeadZone) {
@@ -193,7 +322,14 @@ const getDeltaIndexFromOffset = (
   return 2 * direction;
 };
 const PickerViewport = ({ children }: { children: React.ReactNode }) => {
-  const { ref, scrollIndex, projectedHeight } = usePickerContext();
+  const {
+    ref,
+    scrollIndex,
+    scrollY,
+    selectedIndex,
+    value: controlledValue,
+    projectedHeight,
+  } = usePickerContext();
 
   const touchContainerRef = useRef<View | null>(null);
   const touchContainerTopRef = useRef(0);
@@ -302,16 +438,31 @@ const PickerViewport = ({ children }: { children: React.ReactNode }) => {
         0,
         Math.min(DATA.length - 1, currentIndex + deltaIndex),
       );
-      const targetY = targetIndex * ITEM_HEIGHT;
 
       scheduleOnUI(() => {
         "worklet";
-        scrollTo(ref, 0, targetY, true);
+        scrollToIndex(
+          ref,
+          targetIndex,
+          scrollY,
+          scrollIndex,
+          selectedIndex,
+          controlledValue,
+          true,
+        );
       });
 
       resetTouchState();
     },
-    [projectedHeight, ref, resetTouchState, scrollIndex],
+    [
+      controlledValue,
+      projectedHeight,
+      ref,
+      resetTouchState,
+      scrollIndex,
+      scrollY,
+      selectedIndex,
+    ],
   );
 
   return (
@@ -360,10 +511,18 @@ const PickerViewport = ({ children }: { children: React.ReactNode }) => {
     </View>
   );
 };
-const PickerProvider = ({ children }: { children: React.ReactNode }) => {
+const PickerProvider = ({
+  children,
+  value: controlledValue,
+}: {
+  children: React.ReactNode;
+  value?: SharedValue<number>;
+}) => {
+  const initialIndex = useRef(
+    getClampedIndexForValue(controlledValue?.value ?? DATA[0]),
+  ).current;
+
   const ref = useAnimatedRef<FlashListRef<number>>();
-  const scrollY = useSharedValue(0);
-  const scrollIndex = useSharedValue(0);
 
   const visibleItemCount = 5;
   const paddingItemNumber = Math.floor(visibleItemCount / 2);
@@ -377,11 +536,49 @@ const PickerProvider = ({ children }: { children: React.ReactNode }) => {
   const visibleRange = paddingItemNumber + 2;
   const opacityRange = paddingItemNumber + 1;
 
-  const value = useMemo<PickerContextType>(
+  const scrollY = useSharedValue(
+    initialIndex * ITEM_HEIGHT - (projectedHeight - ITEM_HEIGHT) / 2,
+  );
+  const scrollIndex = useSharedValue(initialIndex);
+  const selectedIndex = useSharedValue(initialIndex);
+
+  useAnimatedReaction(
+    () => controlledValue?.value,
+    (nextValue) => {
+      if (nextValue === undefined) {
+        return;
+      }
+
+      const nextIndex = getClampedIndexForValue(nextValue);
+      const normalizedValue = getItemValueForIndex(nextIndex);
+      const shouldScroll = nextIndex !== selectedIndex.value;
+      const shouldNormalize = nextValue !== normalizedValue;
+
+      if (!shouldScroll && !shouldNormalize) {
+        return;
+      }
+
+      scrollToIndex(
+        ref,
+        nextIndex,
+        scrollY,
+        scrollIndex,
+        selectedIndex,
+        controlledValue,
+        true,
+      );
+    },
+    [controlledValue, ref, scrollIndex, scrollY, selectedIndex],
+  );
+
+  const contextValue = useMemo<PickerContextType>(
     () => ({
       ref,
       scrollY,
       scrollIndex,
+      selectedIndex,
+      value: controlledValue,
+      initialIndex,
       visibleItemCount,
       paddingItemNumber,
       radius,
@@ -393,6 +590,9 @@ const PickerProvider = ({ children }: { children: React.ReactNode }) => {
       ref,
       scrollY,
       scrollIndex,
+      selectedIndex,
+      controlledValue,
+      initialIndex,
       visibleItemCount,
       paddingItemNumber,
       radius,
@@ -403,15 +603,15 @@ const PickerProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   return (
-    <PickerContext.Provider value={value}>
+    <PickerContext.Provider value={contextValue}>
       <PickerViewport>{children}</PickerViewport>
     </PickerContext.Provider>
   );
 };
 
-export const WheelPickerV2 = ({}: WheelPickerV2Props) => {
+export const WheelPickerV2 = ({ value }: WheelPickerV2Props) => {
   return (
-    <PickerProvider>
+    <PickerProvider value={value}>
       <List />
     </PickerProvider>
   );

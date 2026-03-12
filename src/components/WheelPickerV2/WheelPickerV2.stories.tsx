@@ -21,6 +21,14 @@ export const Default = {
 };
 
 export const ChangeValue = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Committed value changes trigger selection haptics. The initial render does not.",
+      },
+    },
+  },
   render: () => {
     const value = useSharedValue(25);
 

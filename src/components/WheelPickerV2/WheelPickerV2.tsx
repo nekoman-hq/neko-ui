@@ -6,7 +6,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { Alert, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import type { WheelPickerV2Props } from "./WheelPickerV2.types";
 import {
   FlashList,
@@ -14,6 +14,7 @@ import {
   type ListRenderItemInfo,
 } from "@shopify/flash-list";
 import Animated, {
+  AnimatedRef,
   createAnimatedComponent,
   SharedValue,
   useAnimatedRef,
@@ -22,11 +23,11 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   scrollTo,
-  AnimatedRef,
 } from "react-native-reanimated";
-import { scheduleOnUI } from "react-native-worklets";
+import { scheduleOnRN, scheduleOnUI } from "react-native-worklets";
 import { LinearGradient } from "expo-linear-gradient";
 import MaskedView from "@react-native-masked-view/masked-view";
+import * as Haptics from "expo-haptics";
 
 const AnimatedFlashList = createAnimatedComponent(FlashList<number>);
 const AnimatedView = Animated.View;
@@ -92,6 +93,10 @@ const getItemValueForIndex = (index: number) => {
   return DATA[clamp(index, 0, DATA.length - 1)] ?? DATA[0];
 };
 
+const triggerSelectionHaptic = () => {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch();
+};
+
 const syncValueForIndex = (
   value: SharedValue<number> | undefined,
   index: number,
@@ -105,6 +110,7 @@ const syncValueForIndex = (
 
   if (value.value !== nextValue) {
     value.value = nextValue;
+    scheduleOnRN(triggerSelectionHaptic);
   }
 };
 
@@ -138,10 +144,9 @@ const scrollToIndex = (
   const nextIndex = clamp(index, 0, DATA.length - 1);
   const nextOffsetY = nextIndex * ITEM_HEIGHT;
 
-  selectedIndex.value = nextIndex;
-  syncValueForIndex(value, nextIndex);
-
   if (!animated) {
+    selectedIndex.value = nextIndex;
+    syncValueForIndex(value, nextIndex);
     scrollY.value = nextOffsetY;
     scrollIndex.value = nextIndex;
   }
@@ -209,6 +214,15 @@ const List = () => {
       const y = event.contentOffset.y;
       scrollY.value = y;
       scrollIndex.value = y / ITEM_HEIGHT;
+    },
+    onMomentumEnd: (event) => {
+      commitOffset(
+        event.contentOffset.y,
+        scrollY,
+        scrollIndex,
+        selectedIndex,
+        controlledValue,
+      );
     },
   });
 

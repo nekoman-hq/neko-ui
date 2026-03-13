@@ -842,7 +842,7 @@ export const WheelPicker = <T extends WheelPickerItem>({
       </PickerProvider>
 
       {label ? (
-        <Text className={clsx("ml-3", labelClassName)} style={ITEM_TEXT_STYLE}>
+        <Text className={clsx(labelClassName)} style={ITEM_TEXT_STYLE}>
           {label}
         </Text>
       ) : null}

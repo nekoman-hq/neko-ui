@@ -165,7 +165,7 @@ export const GroupedDecimal = {
               setWeightQuarter(nearestQuarter);
             }}
             textInputValue={weightTextValue}
-            className={"!bg-blue-600"}
+            className={"flex-2 justify-center !gap-8"}
           >
             <PickerInputModalInput
               value={weight}
@@ -185,12 +185,11 @@ export const GroupedDecimal = {
 
           <PickerInputModalInput
             value={reps}
-            pickerWidth={100}
             onValueChange={setReps}
             data={repsData}
             keyboardType={"numeric"}
             label={"reps"}
-            pickerContainerClassName="flex-none w-[100px] h-[180px] !bg-amber-500"
+            pickerContainerClassName={"w-[35%] items-end"}
           />
         </PickerInputModal>
       </StoryFrame>

@@ -373,7 +373,7 @@ function usePickerWheelProps(input: ParsedInput) {
       className: clsx("flex-1 justify-center h-[200px]", pickerClassName),
       data: pickerData,
       formatItemLabel,
-      itemHeight: pickerItemHeight ?? 40,
+      itemHeight: pickerItemHeight ?? 45,
       itemTextClassName: pickerItemTextClassName,
       label,
       labelClassName: pickerLabelClassName,
@@ -478,12 +478,12 @@ function hasSharedTextField(group: ParsedGroup) {
   );
 }
 
-function getGroupPickerContainerClassName(group: ParsedGroup) {
-  if (group.isInputGroup) {
-    return group.className;
+function getInputGroupClassName(group: ParsedGroup) {
+  if (!group.isInputGroup) {
+    return undefined;
   }
 
-  return group.inputs[0]?.pickerContainerClassName;
+  return group.className;
 }
 
 const PickerInputModalRoot = React.forwardRef<
@@ -820,24 +820,49 @@ const PickerInputModalRoot = React.forwardRef<
           }
         }}
       >
-        {groups.map((group) => (
-          <View
-            key={group.id}
-            className={clsx(
-              "min-w-0 flex-1 flex-row gap-3",
-              getGroupPickerContainerClassName(group),
-            )}
-          >
-            {group.inputs.map((input) => (
+        {groups.map((group) => {
+          if (!group.isInputGroup) {
+            const input = group.inputs[0];
+
+            if (!input) {
+              return null;
+            }
+
+            return (
               <View
-                key={input.id}
-                className={clsx("h-[180px] flex-1 justify-end align-bottom")}
+                key={group.id}
+                className={clsx(
+                  "min-w-0 h-[180px] flex-1 justify-end align-bottom",
+                  input.pickerContainerClassName,
+                )}
               >
                 <PickerInputModalWheelMeasurement input={input} />
               </View>
-            ))}
-          </View>
-        ))}
+            );
+          }
+
+          return (
+            <View
+              key={group.id}
+              className={clsx(
+                "min-w-0 flex-1 flex-row gap-3",
+                getInputGroupClassName(group),
+              )}
+            >
+              {group.inputs.map((input) => (
+                <View
+                  key={input.id}
+                  className={clsx(
+                    "h-[180px] flex-1 justify-end align-bottom",
+                    input.pickerContainerClassName,
+                  )}
+                >
+                  <PickerInputModalWheelMeasurement input={input} />
+                </View>
+              ))}
+            </View>
+          );
+        })}
       </View>
 
       {content ? (
@@ -1081,7 +1106,7 @@ const PickerInputModalRoot = React.forwardRef<
           {pickerInteractive && (
             <Animated.View
               className={
-                "absolute left-0 right-0 top-0 flex-row items-start gap-3 bg-background"
+                "absolute left-0 right-0 top-0 flex-row justify-evenly gap-3"
               }
               onLayout={(event) => {
                 const nextHeight = event.nativeEvent.layout.height;
@@ -1092,27 +1117,49 @@ const PickerInputModalRoot = React.forwardRef<
               pointerEvents={pickerInteractive ? "auto" : "none"}
               style={[secondViewAnimatedStyle]}
             >
-              {groups.map((group) => (
-                <View
-                  key={group.id}
-                  className={clsx(
-                    "min-w-0 flex-1 flex-row gap-3",
-                    getGroupPickerContainerClassName(group),
-                  )}
-                >
-                  {group.inputs.map((input) => (
+              {groups.map((group) => {
+                if (!group.isInputGroup) {
+                  const input = group.inputs[0];
+
+                  if (!input) {
+                    return null;
+                  }
+
+                  return (
                     <View
-                      key={input.id}
+                      key={group.id}
                       className={clsx(
-                        "h-[180px]",
+                        "min-w-0 h-[180px]",
                         input.pickerContainerClassName,
                       )}
                     >
                       <PickerInputModalWheel input={input} />
                     </View>
-                  ))}
-                </View>
-              ))}
+                  );
+                }
+
+                return (
+                  <View
+                    key={group.id}
+                    className={clsx(
+                      "min-w-0 flex-row gap-3",
+                      getInputGroupClassName(group),
+                    )}
+                  >
+                    {group.inputs.map((input) => (
+                      <View
+                        key={input.id}
+                        className={clsx(
+                          "h-[180px]",
+                          input.pickerContainerClassName,
+                        )}
+                      >
+                        <PickerInputModalWheel input={input} />
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
             </Animated.View>
           )}
         </View>

@@ -3,7 +3,6 @@ import BottomSheet, {
   BottomSheetView,
   type BottomSheetFooterProps,
 } from "@gorhom/bottom-sheet";
-import { PickerItem } from "@quidone/react-native-wheel-picker";
 import clsx from "clsx";
 import React, {
   RefObject,
@@ -30,7 +29,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { WheelPicker2 } from "@/src/deprecated/WheelPicker2";
+import { WheelPicker } from "@/src/components/WheelPicker";
+import { usePickerState } from "@/src/components/WheelPicker/WheelPicker.hooks";
 import type {
   PickerInputModalContentProps,
   PickerInputModalDataItem,
@@ -45,7 +45,6 @@ type AnyInputProps = PickerInputModalInputProps<PickerInputModalValue>;
 
 type ParsedInput = AnyInputProps & {
   id: string;
-  pickerData: PickerItem<PickerInputModalValue>[];
 };
 
 type ParsedGroup = Omit<PickerInputModalInputGroupProps, "children"> & {
@@ -106,22 +105,24 @@ function PickerInputModalContent(_props: PickerInputModalContentProps) {
   return null;
 }
 
-function normalizePickerData<T extends PickerInputModalValue>(
-  data: readonly PickerInputModalDataItem<T>[],
-): PickerItem<PickerInputModalValue>[] {
-  return data.map((item) => {
-    if (typeof item === "object" && item !== null && "value" in item) {
-      return {
-        value: item.value,
-        label: item.label ?? String(item.value),
-      };
-    }
+function getPickerDataValue<T extends PickerInputModalValue>(
+  item: PickerInputModalDataItem<T>,
+) {
+  if (typeof item === "object" && item !== null && "value" in item) {
+    return item.value;
+  }
 
-    return {
-      value: item,
-      label: String(item),
-    };
-  });
+  return item;
+}
+
+function getPickerDataLabel<T extends PickerInputModalValue>(
+  item: PickerInputModalDataItem<T>,
+) {
+  if (typeof item === "object" && item !== null && "value" in item) {
+    return item.label ?? String(item.value);
+  }
+
+  return String(item);
 }
 
 function formatInputValue(input: ParsedInput) {
@@ -222,7 +223,6 @@ function parseInputChildren(
     inputs.push({
       ...child.props,
       id: createNodeId("input", currentPath, child.key?.toString()),
-      pickerData: normalizePickerData(child.props.data),
     });
   });
 
@@ -283,7 +283,6 @@ function parseGroups(
         {
           ...child.props,
           id: createNodeId("input", currentPath, child.key?.toString()),
-          pickerData: normalizePickerData(child.props.data),
         },
       ],
     });
@@ -324,6 +323,142 @@ function parseContent(
   });
 
   return content;
+}
+
+function usePickerInputData(
+  data: readonly PickerInputModalDataItem<PickerInputModalValue>[],
+) {
+  const pickerData = useMemo(
+    () => data.map((item) => getPickerDataValue(item)),
+    [data],
+  );
+  const pickerLabelMap = useMemo(
+    () =>
+      new Map(
+        data.map((item) => [
+          getPickerDataValue(item),
+          getPickerDataLabel(item),
+        ]),
+      ),
+    [data],
+  );
+  const formatItemLabel = useCallback(
+    (value: PickerInputModalValue) =>
+      pickerLabelMap.get(value) ?? String(value),
+    [pickerLabelMap],
+  );
+
+  return { pickerData, formatItemLabel };
+}
+
+function usePickerWheelProps(input: ParsedInput) {
+  const {
+    data,
+    label,
+    pickerClassName,
+    pickerItemHeight,
+    pickerItemTextClassName,
+    pickerLabelClassName,
+    pickerVisibleItemCount,
+  } = input;
+  const { pickerData, formatItemLabel } = usePickerInputData(data);
+
+  return useMemo(
+    () => ({
+      className: clsx("flex-1 justify-center h-[200px]", pickerClassName),
+      data: pickerData,
+      formatItemLabel,
+      itemHeight: pickerItemHeight ?? 40,
+      itemTextClassName: pickerItemTextClassName,
+      label,
+      labelClassName: pickerLabelClassName,
+      visibleItemCount: pickerVisibleItemCount ?? 5,
+    }),
+    [
+      formatItemLabel,
+      label,
+      pickerClassName,
+      pickerData,
+      pickerItemHeight,
+      pickerItemTextClassName,
+      pickerLabelClassName,
+      pickerVisibleItemCount,
+    ],
+  );
+}
+
+function PickerInputModalWheelMeasurement({
+  input,
+}: {
+  input: ParsedInput;
+}) {
+  const pickerValue = useSharedValue<PickerInputModalValue>(input.value);
+  const wheelProps = usePickerWheelProps(input);
+
+  useEffect(() => {
+    pickerValue.value = input.value;
+  }, [input.value, pickerValue]);
+
+  return (
+    <WheelPicker {...wheelProps} initialValue={input.value} value={pickerValue} />
+  );
+}
+
+function PickerInputModalWheel({ input }: { input: ParsedInput }) {
+  const {
+    onPickerEndReached,
+    onPickerEndReachedThreshold,
+    onValueChange,
+    value,
+  } = input;
+  const pickerValue = useSharedValue<PickerInputModalValue>(value);
+  const [pickerState, setPickerState] = usePickerState(pickerValue, value);
+  const isSyncingFromPropRef = useRef(false);
+  const lastPropValueRef = useRef(value);
+  const wheelProps = usePickerWheelProps(input);
+
+  useEffect(() => {
+    if (Object.is(lastPropValueRef.current, value)) {
+      return;
+    }
+
+    lastPropValueRef.current = value;
+    isSyncingFromPropRef.current = true;
+    setPickerState(value);
+  }, [setPickerState, value]);
+
+  useEffect(() => {
+    if (isSyncingFromPropRef.current) {
+      if (Object.is(pickerState, value)) {
+        isSyncingFromPropRef.current = false;
+      }
+
+      return;
+    }
+
+    if (Object.is(pickerState, value)) {
+      return;
+    }
+
+    onValueChange(pickerState);
+  }, [onValueChange, pickerState, value]);
+
+  const interactiveWheelProps = useMemo(
+    () => ({
+      ...wheelProps,
+      onEndReached: onPickerEndReached,
+      onEndReachedThreshold: onPickerEndReachedThreshold,
+    }),
+    [onPickerEndReached, onPickerEndReachedThreshold, wheelProps],
+  );
+
+  return (
+    <WheelPicker
+      {...interactiveWheelProps}
+      initialValue={value}
+      value={pickerValue}
+    />
+  );
 }
 
 function hasSharedTextField(group: ParsedGroup) {
@@ -679,15 +814,7 @@ const PickerInputModalRoot = React.forwardRef<
                 key={input.id}
                 className={"h-[180px] flex-1 justify-end align-bottom"}
               >
-                <WheelPicker2
-                  className={"flex-1 justify-center h-[200px]"}
-                  data={input.pickerData}
-                  label={input.label}
-                  itemHeight={input.pickerItemHeight ?? 40}
-                  onValueChanged={() => {}}
-                  value={input.value}
-                  visibleItemCount={input.pickerVisibleItemCount ?? 5}
-                />
+                <PickerInputModalWheelMeasurement input={input} />
               </View>
             ))}
           </View>
@@ -953,28 +1080,7 @@ const PickerInputModalRoot = React.forwardRef<
                 >
                   {group.inputs.map((input) => (
                     <View key={input.id} className={"h-[180px] flex-1"}>
-                      <WheelPicker2
-                        className={clsx(
-                          "flex-1 justify-center  h-[200px]",
-                          input.pickerClassName,
-                        )}
-                        data={input.pickerData}
-                        itemHeight={input.pickerItemHeight ?? 40}
-                        itemTextClassName={input.pickerItemTextClassName}
-                        label={input.label}
-                        labelClassName={input.pickerLabelClassName}
-                        onEndReached={input.onPickerEndReached}
-                        onEndReachedThreshold={
-                          input.onPickerEndReachedThreshold
-                        }
-                        onValueChanged={(event) => {
-                          input.onValueChange(
-                            event.item.value as PickerInputModalValue,
-                          );
-                        }}
-                        value={input.value}
-                        visibleItemCount={input.pickerVisibleItemCount ?? 5}
-                      />
+                      <PickerInputModalWheel input={input} />
                     </View>
                   ))}
                 </View>

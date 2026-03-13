@@ -63,6 +63,8 @@ interface PickerContextType {
   scrollIndex: SharedValue<number>;
   selectedIndex: SharedValue<number>;
   value?: SharedValue<WheelPickerItem>;
+  formatItemLabel?: (value: WheelPickerItem) => string;
+  itemTextClassName?: string;
   initialIndex: number;
   visibleItemCount: number;
   paddingItemNumber: number;
@@ -74,6 +76,8 @@ interface PickerContextType {
   pickerWidth: number;
   hitboxHorizontalPadding: number;
   hitboxVerticalPadding: number;
+  onEndReached?: () => void;
+  onEndReachedThreshold?: number;
 }
 
 const PickerContext = createContext<PickerContextType | null>(null);
@@ -231,7 +235,13 @@ const useWheelItemStyle = (index: number) => {
 type WheelItemProps = ListRenderItemInfo<WheelPickerItem>;
 
 const WheelLabel = memo(({ value }: { value: WheelPickerItem }) => {
-  return <Text style={ITEM_TEXT_STYLE}>{value}</Text>;
+  const { formatItemLabel, itemTextClassName } = usePickerContext();
+
+  return (
+    <Text className={itemTextClassName} style={ITEM_TEXT_STYLE}>
+      {formatItemLabel ? formatItemLabel(value) : value}
+    </Text>
+  );
 });
 
 const WheelItem = memo(({ item, index }: WheelItemProps) => {
@@ -261,6 +271,8 @@ const List = () => {
     pickerWidth,
     hitboxHorizontalPadding,
     hitboxVerticalPadding,
+    onEndReached,
+    onEndReachedThreshold,
   } = usePickerContext();
   const didCorrectInitialOffsetRef = useRef(false);
 
@@ -372,6 +384,8 @@ const List = () => {
       contentContainerStyle={contentContainerStyle}
       drawDistance={itemHeight * 4}
       maxItemsInRecyclePool={8}
+      onEndReached={onEndReached}
+      onEndReachedThreshold={onEndReachedThreshold}
     />
   );
 };
@@ -628,19 +642,29 @@ const PickerProvider = ({
   children,
   data,
   initialValue,
+  formatItemLabel,
+  itemTextClassName,
   itemHeight,
+  visibleItemCount,
   pickerWidth,
   hitboxHorizontalPadding,
   hitboxVerticalPadding,
+  onEndReached,
+  onEndReachedThreshold,
   value: controlledValue,
 }: {
   children: React.ReactNode;
   data: WheelPickerItem[];
   initialValue?: WheelPickerItem;
+  formatItemLabel?: (value: WheelPickerItem) => string;
+  itemTextClassName?: string;
   itemHeight: number;
+  visibleItemCount: number;
   pickerWidth: number;
   hitboxHorizontalPadding: number;
   hitboxVerticalPadding: number;
+  onEndReached?: () => void;
+  onEndReachedThreshold?: number;
   value?: SharedValue<WheelPickerItem>;
 }) => {
   const initialIndex = useRef(
@@ -649,7 +673,6 @@ const PickerProvider = ({
 
   const ref = useAnimatedRef<FlashListRef<WheelPickerItem>>();
 
-  const visibleItemCount = 5;
   const paddingItemNumber = Math.floor(visibleItemCount / 2);
   const angle = 160;
   const angleRad = (angle * Math.PI) / 180;
@@ -714,6 +737,8 @@ const PickerProvider = ({
       scrollIndex,
       selectedIndex,
       value: controlledValue,
+      formatItemLabel,
+      itemTextClassName,
       initialIndex,
       visibleItemCount,
       paddingItemNumber,
@@ -725,6 +750,8 @@ const PickerProvider = ({
       pickerWidth,
       hitboxHorizontalPadding,
       hitboxVerticalPadding,
+      onEndReached,
+      onEndReachedThreshold,
     }),
     [
       data,
@@ -733,6 +760,8 @@ const PickerProvider = ({
       scrollIndex,
       selectedIndex,
       controlledValue,
+      formatItemLabel,
+      itemTextClassName,
       initialIndex,
       visibleItemCount,
       paddingItemNumber,
@@ -744,6 +773,8 @@ const PickerProvider = ({
       pickerWidth,
       hitboxHorizontalPadding,
       hitboxVerticalPadding,
+      onEndReached,
+      onEndReachedThreshold,
     ],
   );
 
@@ -763,27 +794,48 @@ export const WheelPicker = <T extends WheelPickerItem>({
   data,
   initialValue,
   label,
+  formatItemLabel,
+  className,
   labelClassName,
+  itemTextClassName,
   itemHeight = DEFAULT_ITEM_HEIGHT,
+  visibleItemCount = 5,
   pickerWidth = DEFAULT_PICKER_WIDTH,
   hitboxHorizontalPadding = DEFAULT_HITBOX_HORIZONTAL_PADDING,
   hitboxVerticalPadding = DEFAULT_HITBOX_VERTICAL_PADDING,
+  onEndReached,
+  onEndReachedThreshold,
   value,
 }: WheelPickerProps<T>) => {
   const resolvedItemHeight = Math.max(1, itemHeight);
+  const roundedVisibleItemCount = Math.max(3, Math.round(visibleItemCount));
+  const resolvedVisibleItemCount =
+    roundedVisibleItemCount % 2 === 0
+      ? roundedVisibleItemCount + 1
+      : roundedVisibleItemCount;
   const resolvedPickerWidth = Math.max(1, pickerWidth);
   const resolvedHitboxHorizontalPadding = Math.max(0, hitboxHorizontalPadding);
   const resolvedHitboxVerticalPadding = Math.max(0, hitboxVerticalPadding);
 
   return (
-    <View style={{ flexDirection: "row", alignItems: "center" }}>
+    <View
+      className={clsx("flex-row items-center", className)}
+      style={{ flexDirection: "row", alignItems: "center" }}
+    >
       <PickerProvider
         data={data}
         initialValue={initialValue}
+        formatItemLabel={formatItemLabel as
+          | ((value: WheelPickerItem) => string)
+          | undefined}
+        itemTextClassName={itemTextClassName}
         itemHeight={resolvedItemHeight}
+        visibleItemCount={resolvedVisibleItemCount}
         pickerWidth={resolvedPickerWidth}
         hitboxHorizontalPadding={resolvedHitboxHorizontalPadding}
         hitboxVerticalPadding={resolvedHitboxVerticalPadding}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={onEndReachedThreshold}
         value={value as SharedValue<WheelPickerItem> | undefined}
       >
         <List />

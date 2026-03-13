@@ -177,7 +177,7 @@ export const GroupedDecimal = {
               value={weightQuarter}
               onValueChange={setWeightQuarter}
               data={quarterData}
-              label={"fraction"}
+              label={"fr"}
               textInput={false}
             />
           </PickerInputModalInputGroup>

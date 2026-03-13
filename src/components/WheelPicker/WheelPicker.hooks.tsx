@@ -6,8 +6,9 @@ type SetStateAction<T> = T | ((prev: T) => T);
 
 export function usePickerState<T>(
   sharedValue: SharedValue<T>,
+  initialState: T,
 ): [T, (value: SetStateAction<T>) => void] {
-  const [state, setStateInternal] = useState<T>(sharedValue.value);
+  const [state, setStateInternal] = useState<T>(initialState);
   const stateRef = useRef(state);
 
   useEffect(() => {

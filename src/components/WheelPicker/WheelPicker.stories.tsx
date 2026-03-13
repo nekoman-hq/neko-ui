@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { Meta } from "@storybook/react-native";
 import { useSharedValue } from "react-native-reanimated";
 import { WheelPicker } from "./WheelPicker";
@@ -15,10 +15,18 @@ export default meta;
 
 export const Default = {
   render: () => {
-    const value = useSharedValue(25);
+    const initialValue = 25;
+    const value = useSharedValue(initialValue);
     const data = Array.from({ length: 100 }, (_, i) => i);
 
-    return <WheelPicker data={data} label={"kg"} value={value} />;
+    return (
+      <WheelPicker
+        data={data}
+        initialValue={initialValue}
+        label={"kg"}
+        value={value}
+      />
+    );
   },
 };
 
@@ -32,14 +40,15 @@ export const ChangeValue = {
     },
   },
   render: () => {
-    const value = useSharedValue(25);
+    const initialValue = 25;
+    const value = useSharedValue(initialValue);
     const data = Array.from({ length: 100 }, (_, i) => i);
     const min = data[0];
     const max = data[data.length - 1];
 
     return (
       <View>
-        <WheelPicker data={data} value={value} />
+        <WheelPicker data={data} initialValue={initialValue} value={value} />
 
         <View className={"p-4 gap-2 flex-row"}>
           <Button
@@ -61,20 +70,23 @@ export const ChangeValue = {
 export const StringData = {
   render: () => {
     const data = ["Cat", "Dog", "Fox", "Otter", "Tiger"];
-    const value = useSharedValue<(typeof data)[number]>("Fox");
+    const initialValue = "Fox" as (typeof data)[number];
+    const value = useSharedValue<(typeof data)[number]>(initialValue);
 
-    return <WheelPicker data={data} value={value} />;
+    return <WheelPicker data={data} initialValue={initialValue} value={value} />;
   },
 };
 
 export const CustomHitbox = {
   render: () => {
     const data = Array.from({ length: 24 }, (_, i) => i);
-    const value = useSharedValue(8);
+    const initialValue = 8;
+    const value = useSharedValue(initialValue);
 
     return (
       <WheelPicker
         data={data}
+        initialValue={initialValue}
         label={"h"}
         hitboxHorizontalPadding={40}
         hitboxVerticalPadding={32}
@@ -87,9 +99,10 @@ export const CustomHitbox = {
 export const CustomSizing = {
   render: () => {
     const data = useMemo(() => Array.from({ length: 60 }, (_, i) => i), []);
-    const value = useSharedValue(12);
+    const initialValue = 12;
+    const value = useSharedValue(initialValue);
 
-    const [rerenderTest, setRerenderText] = usePickerState(value);
+    const [rerenderTest, setRerenderText] = usePickerState(value, initialValue);
 
     return (
       <View className={"w-full items-center"}>
@@ -100,6 +113,7 @@ export const CustomSizing = {
 
         <WheelPicker
           data={data}
+          initialValue={initialValue}
           label={"min"}
           labelClassName={"text-lg text-foreground"}
           itemHeight={50}

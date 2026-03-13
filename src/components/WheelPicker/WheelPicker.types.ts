@@ -4,6 +4,7 @@ export type WheelPickerItem = string | number;
 
 export interface WheelPickerProps<T extends WheelPickerItem> {
   data: T[];
+  initialValue?: T;
   label?: string;
   labelClassName?: string;
   itemHeight?: number;

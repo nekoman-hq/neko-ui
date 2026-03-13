@@ -616,6 +616,7 @@ const PickerViewport = ({
 const PickerProvider = ({
   children,
   data,
+  initialValue,
   itemHeight,
   pickerWidth,
   hitboxHorizontalPadding,
@@ -624,6 +625,7 @@ const PickerProvider = ({
 }: {
   children: React.ReactNode;
   data: WheelPickerItem[];
+  initialValue?: WheelPickerItem;
   itemHeight: number;
   pickerWidth: number;
   hitboxHorizontalPadding: number;
@@ -631,9 +633,7 @@ const PickerProvider = ({
   value?: SharedValue<WheelPickerItem>;
 }) => {
   const initialIndex = useRef(
-    controlledValue?.value === undefined
-      ? 0
-      : getIndexForValue(controlledValue.value, data),
+    initialValue === undefined ? 0 : getIndexForValue(initialValue, data),
   ).current;
 
   const ref = useAnimatedRef<FlashListRef<WheelPickerItem>>();
@@ -746,6 +746,7 @@ const PickerProvider = ({
 
 export const WheelPicker = <T extends WheelPickerItem>({
   data,
+  initialValue,
   label,
   labelClassName,
   itemHeight = DEFAULT_ITEM_HEIGHT,
@@ -763,6 +764,7 @@ export const WheelPicker = <T extends WheelPickerItem>({
     <View style={{ flexDirection: "row", alignItems: "center" }}>
       <PickerProvider
         data={data}
+        initialValue={initialValue}
         itemHeight={resolvedItemHeight}
         pickerWidth={resolvedPickerWidth}
         hitboxHorizontalPadding={resolvedHitboxHorizontalPadding}

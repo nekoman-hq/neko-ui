@@ -72,6 +72,8 @@ interface PickerContextType {
   opacityRange: number;
   itemHeight: number;
   pickerWidth: number;
+  hitboxHorizontalPadding: number;
+  hitboxVerticalPadding: number;
 }
 
 const PickerContext = createContext<PickerContextType | null>(null);
@@ -256,6 +258,9 @@ const List = () => {
     projectedHeight,
     initialIndex,
     itemHeight,
+    pickerWidth,
+    hitboxHorizontalPadding,
+    hitboxVerticalPadding,
   } = usePickerContext();
   const didCorrectInitialOffsetRef = useRef(false);
 
@@ -320,9 +325,10 @@ const List = () => {
 
   const contentContainerStyle = useMemo(
     () => ({
-      paddingVertical: (projectedHeight - itemHeight) / 2,
+      paddingVertical:
+        (projectedHeight - itemHeight) / 2 + hitboxVerticalPadding,
     }),
-    [itemHeight, projectedHeight],
+    [hitboxVerticalPadding, itemHeight, projectedHeight],
   );
 
   const handleCommitLayoutEffect = useCallback(() => {
@@ -349,6 +355,10 @@ const List = () => {
   return (
     <AnimatedFlashList
       ref={ref}
+      style={{
+        width: pickerWidth + hitboxHorizontalPadding * 2,
+        height: projectedHeight + hitboxVerticalPadding * 2,
+      }}
       data={data}
       renderItem={renderItem}
       keyExtractor={(item, index) => `${String(item)}-${index}`}
@@ -579,20 +589,21 @@ const PickerViewport = ({
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchCancel}
       >
-        <View
+        <MaskedView
           style={{
-            marginTop: hitboxVerticalPadding,
-            marginLeft: hitboxHorizontalPadding,
-            width: pickerWidth,
-            height: projectedHeight,
-            overflow: "hidden",
+            width: extendedWidth,
+            height: extendedHeight,
           }}
-        >
-          <MaskedView
-            style={{ flex: 1 }}
-            maskElement={
+          maskElement={
+            <View style={{ flex: 1 }}>
               <LinearGradient
-                style={{ flex: 1 }}
+                style={{
+                  position: "absolute",
+                  top: hitboxVerticalPadding,
+                  left: hitboxHorizontalPadding,
+                  width: pickerWidth,
+                  height: projectedHeight,
+                }}
                 colors={[
                   "rgba(0,0,0,0)",
                   "rgba(0,0,0,0.2)",
@@ -604,11 +615,11 @@ const PickerViewport = ({
                 ]}
                 locations={[0, 0.08, 0.26, 0.5, 0.74, 0.92, 1]}
               />
-            }
-          >
-            {children}
-          </MaskedView>
-        </View>
+            </View>
+          }
+        >
+          {children}
+        </MaskedView>
       </View>
     </View>
   );
@@ -712,6 +723,8 @@ const PickerProvider = ({
       opacityRange,
       itemHeight,
       pickerWidth,
+      hitboxHorizontalPadding,
+      hitboxVerticalPadding,
     }),
     [
       data,
@@ -729,6 +742,8 @@ const PickerProvider = ({
       opacityRange,
       itemHeight,
       pickerWidth,
+      hitboxHorizontalPadding,
+      hitboxVerticalPadding,
     ],
   );
 

@@ -7,7 +7,8 @@ import React, {
   useRef,
 } from "react";
 import { Text, View } from "react-native";
-import type { WheelPickerProps } from "./WheelPicker.types";
+import type { WheelPickerItem, WheelPickerProps } from "./WheelPicker.types";
+import clsx from "clsx";
 import {
   FlashList,
   type FlashListRef,
@@ -29,18 +30,18 @@ import { LinearGradient } from "expo-linear-gradient";
 import MaskedView from "@react-native-masked-view/masked-view";
 import * as Haptics from "expo-haptics";
 
-const AnimatedFlashList = createAnimatedComponent(FlashList<number>);
+const AnimatedFlashList = createAnimatedComponent(FlashList<WheelPickerItem>);
 const AnimatedView = Animated.View;
-
-const DATA = Array.from({ length: 1000 }, (_, i) => i);
-const ITEM_HEIGHT = 45;
+const DEFAULT_ITEM_HEIGHT = 45;
+const DEFAULT_PICKER_WIDTH = 50;
+const PICKER_MARGIN_VERTICAL = 80;
+const DEFAULT_HITBOX_HORIZONTAL_PADDING = 24;
+const DEFAULT_HITBOX_VERTICAL_PADDING = 20;
 
 const TAP_MAX_DURATION_MS = 220;
 const TAP_MAX_MOVE_PX = 8;
-const TAP_EXTEND_Y = 20;
 
 const ITEM_CONTAINER_STYLE = {
-  height: ITEM_HEIGHT,
   alignItems: "center" as const,
   justifyContent: "center" as const,
 };
@@ -56,11 +57,12 @@ const HIDDEN_STYLE = {
 } as const;
 
 interface PickerContextType {
-  ref: AnimatedRef<FlashListRef<number>>;
+  data: WheelPickerItem[];
+  ref: AnimatedRef<FlashListRef<WheelPickerItem>>;
   scrollY: SharedValue<number>;
   scrollIndex: SharedValue<number>;
   selectedIndex: SharedValue<number>;
-  value?: SharedValue<number>;
+  value?: SharedValue<WheelPickerItem>;
   initialIndex: number;
   visibleItemCount: number;
   paddingItemNumber: number;
@@ -68,6 +70,8 @@ interface PickerContextType {
   projectedHeight: number;
   visibleRange: number;
   opacityRange: number;
+  itemHeight: number;
+  pickerWidth: number;
 }
 
 const PickerContext = createContext<PickerContextType | null>(null);
@@ -83,14 +87,42 @@ const clamp = (value: number, min: number, max: number) => {
   return Math.min(Math.max(value, min), max);
 };
 
-const getClampedIndexForValue = (value: number) => {
+const getClampedIndex = (value: number, length: number) => {
   "worklet";
-  return clamp(Math.round(value), 0, DATA.length - 1);
+  if (length <= 0) {
+    return 0;
+  }
+
+  return clamp(Math.round(value), 0, length - 1);
 };
 
-const getItemValueForIndex = (index: number) => {
+const getClampedIndexForOffset = (
+  offsetY: number,
+  length: number,
+  itemHeight: number,
+) => {
   "worklet";
-  return DATA[clamp(index, 0, DATA.length - 1)] ?? DATA[0];
+  return getClampedIndex(offsetY / itemHeight, length);
+};
+
+const getIndexForValue = (value: WheelPickerItem, data: WheelPickerItem[]) => {
+  "worklet";
+  for (let i = 0; i < data.length; i += 1) {
+    if (data[i] === value) {
+      return i;
+    }
+  }
+
+  return 0;
+};
+
+const getItemValueForIndex = (data: WheelPickerItem[], index: number) => {
+  "worklet";
+  if (data.length === 0) {
+    return undefined;
+  }
+
+  return data[getClampedIndex(index, data.length)] ?? data[0];
 };
 
 const triggerSelectionHaptic = () => {
@@ -98,15 +130,20 @@ const triggerSelectionHaptic = () => {
 };
 
 const syncValueForIndex = (
-  value: SharedValue<number> | undefined,
+  data: WheelPickerItem[],
+  value: SharedValue<WheelPickerItem> | undefined,
   index: number,
 ) => {
   "worklet";
-  if (!value) {
+  if (!value || data.length === 0) {
     return;
   }
 
-  const nextValue = getItemValueForIndex(index);
+  const nextValue = getItemValueForIndex(data, index);
+
+  if (nextValue === undefined) {
+    return;
+  }
 
   if (value.value !== nextValue) {
     value.value = nextValue;
@@ -116,37 +153,45 @@ const syncValueForIndex = (
 
 const commitOffset = (
   offsetY: number,
+  data: WheelPickerItem[],
+  itemHeight: number,
   scrollY: SharedValue<number>,
   scrollIndex: SharedValue<number>,
   selectedIndex: SharedValue<number>,
-  value: SharedValue<number> | undefined,
+  value: SharedValue<WheelPickerItem> | undefined,
 ) => {
   "worklet";
-  const nextIndex = getClampedIndexForValue(offsetY / ITEM_HEIGHT);
-  const snappedOffsetY = nextIndex * ITEM_HEIGHT;
+  const nextIndex = getClampedIndexForOffset(offsetY, data.length, itemHeight);
+  const snappedOffsetY = nextIndex * itemHeight;
 
   scrollY.value = snappedOffsetY;
   scrollIndex.value = nextIndex;
   selectedIndex.value = nextIndex;
-  syncValueForIndex(value, nextIndex);
+  syncValueForIndex(data, value, nextIndex);
 };
 
 const scrollToIndex = (
-  ref: AnimatedRef<FlashListRef<number>>,
+  ref: AnimatedRef<FlashListRef<WheelPickerItem>>,
+  data: WheelPickerItem[],
+  itemHeight: number,
   index: number,
   scrollY: SharedValue<number>,
   scrollIndex: SharedValue<number>,
   selectedIndex: SharedValue<number>,
-  value: SharedValue<number> | undefined,
+  value: SharedValue<WheelPickerItem> | undefined,
   animated: boolean,
 ) => {
   "worklet";
-  const nextIndex = clamp(index, 0, DATA.length - 1);
-  const nextOffsetY = nextIndex * ITEM_HEIGHT;
+  if (data.length === 0) {
+    return;
+  }
+
+  const nextIndex = getClampedIndex(index, data.length);
+  const nextOffsetY = nextIndex * itemHeight;
 
   if (!animated) {
     selectedIndex.value = nextIndex;
-    syncValueForIndex(value, nextIndex);
+    syncValueForIndex(data, value, nextIndex);
     scrollY.value = nextOffsetY;
     scrollIndex.value = nextIndex;
   }
@@ -155,7 +200,7 @@ const scrollToIndex = (
 };
 
 const useWheelItemStyle = (index: number) => {
-  const { scrollIndex, radius, visibleRange, opacityRange } =
+  const { scrollIndex, radius, visibleRange, opacityRange, itemHeight } =
     usePickerContext();
 
   return useAnimatedStyle(() => {
@@ -165,7 +210,7 @@ const useWheelItemStyle = (index: number) => {
       return HIDDEN_STYLE;
     }
 
-    const distance = relativeIndex * ITEM_HEIGHT;
+    const distance = relativeIndex * itemHeight;
     const theta = clamp(distance / radius, -Math.PI / 2, Math.PI / 2);
 
     const translateY = Number((radius * Math.sin(theta) - distance).toFixed(2));
@@ -178,20 +223,23 @@ const useWheelItemStyle = (index: number) => {
         { rotateX: `${(-theta * 180) / Math.PI}deg` },
       ],
     };
-  }, [index, radius, visibleRange, opacityRange]);
+  }, [index, itemHeight, radius, visibleRange, opacityRange]);
 };
 
-type WheelItemProps = ListRenderItemInfo<number>;
+type WheelItemProps = ListRenderItemInfo<WheelPickerItem>;
 
-const WheelLabel = memo(({ value }: { value: number }) => {
+const WheelLabel = memo(({ value }: { value: WheelPickerItem }) => {
   return <Text style={ITEM_TEXT_STYLE}>{value}</Text>;
 });
 
 const WheelItem = memo(({ item, index }: WheelItemProps) => {
+  const { itemHeight } = usePickerContext();
   const animatedStyle = useWheelItemStyle(index);
 
   return (
-    <AnimatedView style={[ITEM_CONTAINER_STYLE, animatedStyle]}>
+    <AnimatedView
+      style={[ITEM_CONTAINER_STYLE, { height: itemHeight }, animatedStyle]}
+    >
       <WheelLabel value={item} />
     </AnimatedView>
   );
@@ -199,6 +247,7 @@ const WheelItem = memo(({ item, index }: WheelItemProps) => {
 
 const List = () => {
   const {
+    data,
     ref,
     scrollY,
     scrollIndex,
@@ -206,6 +255,7 @@ const List = () => {
     value: controlledValue,
     projectedHeight,
     initialIndex,
+    itemHeight,
   } = usePickerContext();
   const didCorrectInitialOffsetRef = useRef(false);
 
@@ -213,11 +263,13 @@ const List = () => {
     onScroll: (event) => {
       const y = event.contentOffset.y;
       scrollY.value = y;
-      scrollIndex.value = y / ITEM_HEIGHT;
+      scrollIndex.value = y / itemHeight;
     },
     onMomentumEnd: (event) => {
       commitOffset(
         event.contentOffset.y,
+        data,
+        itemHeight,
         scrollY,
         scrollIndex,
         selectedIndex,
@@ -229,8 +281,12 @@ const List = () => {
   useAnimatedReaction(
     () => scrollY.value,
     (offsetY, previousOffsetY) => {
-      const nextIndex = getClampedIndexForValue(offsetY / ITEM_HEIGHT);
-      const snappedOffsetY = nextIndex * ITEM_HEIGHT;
+      const nextIndex = getClampedIndexForOffset(
+        offsetY,
+        data.length,
+        itemHeight,
+      );
+      const snappedOffsetY = nextIndex * itemHeight;
       const delta =
         previousOffsetY === null || previousOffsetY === undefined
           ? 0
@@ -238,7 +294,7 @@ const List = () => {
       const isSettled = Math.abs(offsetY - snappedOffsetY) < 0.5 && delta < 0.5;
       const isAlreadySynced =
         selectedIndex.value === nextIndex &&
-        controlledValue?.value === getItemValueForIndex(nextIndex);
+        controlledValue?.value === getItemValueForIndex(data, nextIndex);
 
       if (!isSettled || isAlreadySynced) {
         return;
@@ -246,25 +302,27 @@ const List = () => {
 
       commitOffset(
         offsetY,
+        data,
+        itemHeight,
         scrollY,
         scrollIndex,
         selectedIndex,
         controlledValue,
       );
     },
-    [controlledValue, scrollIndex, scrollY, selectedIndex],
+    [controlledValue, data, itemHeight, scrollIndex, scrollY, selectedIndex],
   );
 
   const renderItem = useCallback(
-    (info: ListRenderItemInfo<number>) => <WheelItem {...info} />,
+    (info: ListRenderItemInfo<WheelPickerItem>) => <WheelItem {...info} />,
     [],
   );
 
   const contentContainerStyle = useMemo(
     () => ({
-      paddingVertical: (projectedHeight - ITEM_HEIGHT) / 2,
+      paddingVertical: (projectedHeight - itemHeight) / 2,
     }),
-    [projectedHeight],
+    [itemHeight, projectedHeight],
   );
 
   const handleCommitLayoutEffect = useCallback(() => {
@@ -276,33 +334,33 @@ const List = () => {
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        scrollY.value = initialIndex * ITEM_HEIGHT;
+        scrollY.value = initialIndex * itemHeight;
         scrollIndex.value = initialIndex;
         selectedIndex.value = initialIndex;
         ref.current?.scrollToOffset({
-          offset: initialIndex * ITEM_HEIGHT,
+          offset: initialIndex * itemHeight,
           animated: false,
           skipFirstItemOffset: true,
         });
       });
     });
-  }, [initialIndex, ref, scrollIndex, scrollY, selectedIndex]);
+  }, [initialIndex, itemHeight, ref, scrollIndex, scrollY, selectedIndex]);
 
   return (
     <AnimatedFlashList
       ref={ref}
-      data={DATA}
+      data={data}
       renderItem={renderItem}
-      keyExtractor={(item) => String(item)}
+      keyExtractor={(item, index) => `${String(item)}-${index}`}
       maintainVisibleContentPosition={{ disabled: true }}
       onCommitLayoutEffect={handleCommitLayoutEffect}
       onScroll={onScroll}
       scrollEventThrottle={16}
       showsVerticalScrollIndicator={false}
-      snapToInterval={ITEM_HEIGHT}
+      snapToInterval={itemHeight}
       decelerationRate={0.9938}
       contentContainerStyle={contentContainerStyle}
-      drawDistance={ITEM_HEIGHT * 4}
+      drawDistance={itemHeight * 4}
       maxItemsInRecyclePool={8}
     />
   );
@@ -311,15 +369,16 @@ const List = () => {
 const getDeltaIndexFromOffset = (
   offsetFromCenter: number,
   projectedHeight: number,
+  itemHeight: number,
 ) => {
   const abs = Math.abs(offsetFromCenter);
   const direction = offsetFromCenter < 0 ? -1 : 1;
 
-  const centerDeadZone = ITEM_HEIGHT * 0.32;
+  const centerDeadZone = itemHeight * 0.32;
 
-  const bZoneOuterBoundary = ITEM_HEIGHT * 1.55;
+  const bZoneOuterBoundary = itemHeight * 1.55;
 
-  const virtualOuterBoundary = projectedHeight / 2 + ITEM_HEIGHT * 0.75;
+  const virtualOuterBoundary = projectedHeight / 2 + itemHeight * 0.75;
 
   if (abs <= centerDeadZone) {
     return 0;
@@ -335,14 +394,25 @@ const getDeltaIndexFromOffset = (
 
   return 2 * direction;
 };
-const PickerViewport = ({ children }: { children: React.ReactNode }) => {
+const PickerViewport = ({
+  children,
+  hitboxHorizontalPadding,
+  hitboxVerticalPadding,
+}: {
+  children: React.ReactNode;
+  hitboxHorizontalPadding: number;
+  hitboxVerticalPadding: number;
+}) => {
   const {
+    data,
     ref,
     scrollIndex,
     scrollY,
     selectedIndex,
     value: controlledValue,
     projectedHeight,
+    itemHeight,
+    pickerWidth,
   } = usePickerContext();
 
   const touchContainerRef = useRef<View | null>(null);
@@ -354,7 +424,8 @@ const PickerViewport = ({ children }: { children: React.ReactNode }) => {
   const movedTooFarRef = useRef(false);
   const isMultiTouchRef = useRef(false);
 
-  const extendedHeight = projectedHeight + TAP_EXTEND_Y * 2;
+  const extendedHeight = projectedHeight + hitboxVerticalPadding * 2;
+  const extendedWidth = pickerWidth + hitboxHorizontalPadding * 2;
 
   const measureContainer = useCallback(() => {
     touchContainerRef.current?.measureInWindow((_x, y) => {
@@ -432,7 +503,7 @@ const PickerViewport = ({ children }: { children: React.ReactNode }) => {
       const localExtendedY = pageY - touchContainerTopRef.current;
 
       // In das Koordinatensystem der sichtbaren Picker-Fläche zurückschieben
-      const localY = localExtendedY - TAP_EXTEND_Y;
+      const localY = localExtendedY - hitboxVerticalPadding;
 
       const centerY = projectedHeight / 2;
       const offsetFromCenter = localY - centerY;
@@ -440,6 +511,7 @@ const PickerViewport = ({ children }: { children: React.ReactNode }) => {
       const deltaIndex = getDeltaIndexFromOffset(
         offsetFromCenter,
         projectedHeight,
+        itemHeight,
       );
 
       if (deltaIndex === 0) {
@@ -450,13 +522,15 @@ const PickerViewport = ({ children }: { children: React.ReactNode }) => {
       const currentIndex = Math.round(scrollIndex.value);
       const targetIndex = Math.max(
         0,
-        Math.min(DATA.length - 1, currentIndex + deltaIndex),
+        Math.min(data.length - 1, currentIndex + deltaIndex),
       );
 
       scheduleOnUI(() => {
         "worklet";
         scrollToIndex(
           ref,
+          data,
+          itemHeight,
           targetIndex,
           scrollY,
           scrollIndex,
@@ -470,6 +544,9 @@ const PickerViewport = ({ children }: { children: React.ReactNode }) => {
     },
     [
       controlledValue,
+      data,
+      hitboxVerticalPadding,
+      itemHeight,
       projectedHeight,
       ref,
       resetTouchState,
@@ -481,69 +558,92 @@ const PickerViewport = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <View
-      ref={touchContainerRef}
       style={{
-        width: 100,
-        height: extendedHeight,
-        marginVertical: 100 - TAP_EXTEND_Y,
+        width: pickerWidth,
+        height: projectedHeight,
+        marginVertical: PICKER_MARGIN_VERTICAL,
       }}
-      onLayout={handleLayout}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchCancel}
     >
       <View
         style={{
-          marginTop: TAP_EXTEND_Y,
-          width: 100,
-          height: projectedHeight,
-          overflow: "hidden",
+          position: "absolute",
+          top: -hitboxVerticalPadding,
+          left: -hitboxHorizontalPadding,
+          width: extendedWidth,
+          height: extendedHeight,
         }}
+        ref={touchContainerRef}
+        onLayout={handleLayout}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
       >
-        <MaskedView
-          style={{ flex: 1 }}
-          maskElement={
-            <LinearGradient
-              style={{ flex: 1 }}
-              colors={[
-                "rgba(0,0,0,0)",
-                "rgba(0,0,0,0.2)",
-                "rgba(0,0,0,0.7)",
-                "rgba(0,0,0,1)",
-                "rgba(0,0,0,0.7)",
-                "rgba(0,0,0,0.2)",
-                "rgba(0,0,0,0)",
-              ]}
-              locations={[0, 0.08, 0.26, 0.5, 0.74, 0.92, 1]}
-            />
-          }
+        <View
+          style={{
+            marginTop: hitboxVerticalPadding,
+            marginLeft: hitboxHorizontalPadding,
+            width: pickerWidth,
+            height: projectedHeight,
+            overflow: "hidden",
+          }}
         >
-          {children}
-        </MaskedView>
+          <MaskedView
+            style={{ flex: 1 }}
+            maskElement={
+              <LinearGradient
+                style={{ flex: 1 }}
+                colors={[
+                  "rgba(0,0,0,0)",
+                  "rgba(0,0,0,0.2)",
+                  "rgba(0,0,0,0.7)",
+                  "rgba(0,0,0,1)",
+                  "rgba(0,0,0,0.7)",
+                  "rgba(0,0,0,0.2)",
+                  "rgba(0,0,0,0)",
+                ]}
+                locations={[0, 0.08, 0.26, 0.5, 0.74, 0.92, 1]}
+              />
+            }
+          >
+            {children}
+          </MaskedView>
+        </View>
       </View>
     </View>
   );
 };
 const PickerProvider = ({
   children,
+  data,
+  itemHeight,
+  pickerWidth,
+  hitboxHorizontalPadding,
+  hitboxVerticalPadding,
   value: controlledValue,
 }: {
   children: React.ReactNode;
-  value?: SharedValue<number>;
+  data: WheelPickerItem[];
+  itemHeight: number;
+  pickerWidth: number;
+  hitboxHorizontalPadding: number;
+  hitboxVerticalPadding: number;
+  value?: SharedValue<WheelPickerItem>;
 }) => {
   const initialIndex = useRef(
-    getClampedIndexForValue(controlledValue?.value ?? DATA[0]),
+    controlledValue?.value === undefined
+      ? 0
+      : getIndexForValue(controlledValue.value, data),
   ).current;
 
-  const ref = useAnimatedRef<FlashListRef<number>>();
+  const ref = useAnimatedRef<FlashListRef<WheelPickerItem>>();
 
   const visibleItemCount = 5;
   const paddingItemNumber = Math.floor(visibleItemCount / 2);
   const angle = 160;
   const angleRad = (angle * Math.PI) / 180;
 
-  const arcLength = visibleItemCount * ITEM_HEIGHT;
+  const arcLength = visibleItemCount * itemHeight;
   const radius = arcLength / angleRad;
   const projectedHeight = 2 * radius * Math.sin(angleRad / 2);
 
@@ -551,7 +651,7 @@ const PickerProvider = ({
   const opacityRange = paddingItemNumber + 1;
 
   const scrollY = useSharedValue(
-    initialIndex * ITEM_HEIGHT - (projectedHeight - ITEM_HEIGHT) / 2,
+    initialIndex * itemHeight - (projectedHeight - itemHeight) / 2,
   );
   const scrollIndex = useSharedValue(initialIndex);
   const selectedIndex = useSharedValue(initialIndex);
@@ -559,12 +659,12 @@ const PickerProvider = ({
   useAnimatedReaction(
     () => controlledValue?.value,
     (nextValue) => {
-      if (nextValue === undefined) {
+      if (nextValue === undefined || data.length === 0) {
         return;
       }
 
-      const nextIndex = getClampedIndexForValue(nextValue);
-      const normalizedValue = getItemValueForIndex(nextIndex);
+      const nextIndex = getIndexForValue(nextValue, data);
+      const normalizedValue = getItemValueForIndex(data, nextIndex);
       const shouldScroll = nextIndex !== selectedIndex.value;
       const shouldNormalize = nextValue !== normalizedValue;
 
@@ -574,6 +674,8 @@ const PickerProvider = ({
 
       scrollToIndex(
         ref,
+        data,
+        itemHeight,
         nextIndex,
         scrollY,
         scrollIndex,
@@ -582,11 +684,20 @@ const PickerProvider = ({
         true,
       );
     },
-    [controlledValue, ref, scrollIndex, scrollY, selectedIndex],
+    [
+      controlledValue,
+      data,
+      itemHeight,
+      ref,
+      scrollIndex,
+      scrollY,
+      selectedIndex,
+    ],
   );
 
   const contextValue = useMemo<PickerContextType>(
     () => ({
+      data,
       ref,
       scrollY,
       scrollIndex,
@@ -599,8 +710,11 @@ const PickerProvider = ({
       projectedHeight,
       visibleRange,
       opacityRange,
+      itemHeight,
+      pickerWidth,
     }),
     [
+      data,
       ref,
       scrollY,
       scrollIndex,
@@ -613,20 +727,56 @@ const PickerProvider = ({
       projectedHeight,
       visibleRange,
       opacityRange,
+      itemHeight,
+      pickerWidth,
     ],
   );
 
   return (
     <PickerContext.Provider value={contextValue}>
-      <PickerViewport>{children}</PickerViewport>
+      <PickerViewport
+        hitboxHorizontalPadding={hitboxHorizontalPadding}
+        hitboxVerticalPadding={hitboxVerticalPadding}
+      >
+        {children}
+      </PickerViewport>
     </PickerContext.Provider>
   );
 };
 
-export const WheelPicker = ({ value }: WheelPickerProps) => {
+export const WheelPicker = <T extends WheelPickerItem>({
+  data,
+  label,
+  labelClassName,
+  itemHeight = DEFAULT_ITEM_HEIGHT,
+  pickerWidth = DEFAULT_PICKER_WIDTH,
+  hitboxHorizontalPadding = DEFAULT_HITBOX_HORIZONTAL_PADDING,
+  hitboxVerticalPadding = DEFAULT_HITBOX_VERTICAL_PADDING,
+  value,
+}: WheelPickerProps<T>) => {
+  const resolvedItemHeight = Math.max(1, itemHeight);
+  const resolvedPickerWidth = Math.max(1, pickerWidth);
+  const resolvedHitboxHorizontalPadding = Math.max(0, hitboxHorizontalPadding);
+  const resolvedHitboxVerticalPadding = Math.max(0, hitboxVerticalPadding);
+
   return (
-    <PickerProvider value={value}>
-      <List />
-    </PickerProvider>
+    <View style={{ flexDirection: "row", alignItems: "center" }}>
+      <PickerProvider
+        data={data}
+        itemHeight={resolvedItemHeight}
+        pickerWidth={resolvedPickerWidth}
+        hitboxHorizontalPadding={resolvedHitboxHorizontalPadding}
+        hitboxVerticalPadding={resolvedHitboxVerticalPadding}
+        value={value as SharedValue<WheelPickerItem> | undefined}
+      >
+        <List />
+      </PickerProvider>
+
+      {label ? (
+        <Text className={clsx("ml-3", labelClassName)} style={ITEM_TEXT_STYLE}>
+          {label}
+        </Text>
+      ) : null}
+    </View>
   );
 };

@@ -1,5 +1,14 @@
 import type { SharedValue } from "react-native-reanimated";
 
-export interface WheelPickerProps {
-  value?: SharedValue<number>;
+export type WheelPickerItem = string | number;
+
+export interface WheelPickerProps<T extends WheelPickerItem> {
+  data: T[];
+  label?: string;
+  labelClassName?: string;
+  itemHeight?: number;
+  pickerWidth?: number;
+  hitboxHorizontalPadding?: number;
+  hitboxVerticalPadding?: number;
+  value?: SharedValue<T>;
 }

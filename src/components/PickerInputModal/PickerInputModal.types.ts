@@ -31,9 +31,11 @@ export interface PickerInputModalInputProps<
   onTextInputValueChange?: (value: string) => void;
   pickerItemHeight?: number;
   pickerVisibleItemCount?: number;
+
   pickerClassName?: string;
   pickerItemTextClassName?: string;
   pickerLabelClassName?: string;
+
   onPickerEndReached?: () => void;
   onPickerEndReachedThreshold?: number;
 }
@@ -59,4 +61,4 @@ export interface PickerInputModalProps {
   children?: React.ReactNode;
 }
 
-export type PickerInputModalRef = React.ElementRef<typeof BottomSheet>;
+export type PickerInputModalRef = React.ComponentRef<typeof BottomSheet>;

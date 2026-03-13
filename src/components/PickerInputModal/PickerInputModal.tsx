@@ -387,11 +387,7 @@ function usePickerWheelProps(input: ParsedInput) {
   );
 }
 
-function PickerInputModalWheelMeasurement({
-  input,
-}: {
-  input: ParsedInput;
-}) {
+function PickerInputModalWheelMeasurement({ input }: { input: ParsedInput }) {
   const pickerValue = useSharedValue<PickerInputModalValue>(input.value);
   const wheelProps = usePickerWheelProps(input);
 
@@ -400,7 +396,11 @@ function PickerInputModalWheelMeasurement({
   }, [input.value, pickerValue]);
 
   return (
-    <WheelPicker {...wheelProps} initialValue={input.value} value={pickerValue} />
+    <WheelPicker
+      {...wheelProps}
+      initialValue={input.value}
+      value={pickerValue}
+    />
   );
 }
 
@@ -812,7 +812,7 @@ const PickerInputModalRoot = React.forwardRef<
             {group.inputs.map((input) => (
               <View
                 key={input.id}
-                className={"h-[180px] flex-1 justify-end align-bottom"}
+                className={"h-[180px] flex-1 justify-end align-bottom "}
               >
                 <PickerInputModalWheelMeasurement input={input} />
               </View>
@@ -1076,10 +1076,10 @@ const PickerInputModalRoot = React.forwardRef<
               {groups.map((group) => (
                 <View
                   key={group.id}
-                  className={"min-w-0 flex-1 flex-row gap-3"}
+                  className={clsx("min-w-0 flex-1 flex-row gap-3")}
                 >
                   {group.inputs.map((input) => (
-                    <View key={input.id} className={"h-[180px] flex-1"}>
+                    <View key={input.id} className={"h-[180px] flex-1 "}>
                       <PickerInputModalWheel input={input} />
                     </View>
                   ))}

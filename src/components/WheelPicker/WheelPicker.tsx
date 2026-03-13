@@ -819,15 +819,15 @@ export const WheelPicker = <T extends WheelPickerItem>({
 
   return (
     <View
-      className={clsx("flex-row items-center", className)}
+      className={clsx("flex-row w-fit items-center", className)}
       style={{ flexDirection: "row", alignItems: "center" }}
     >
       <PickerProvider
         data={data}
         initialValue={initialValue}
-        formatItemLabel={formatItemLabel as
-          | ((value: WheelPickerItem) => string)
-          | undefined}
+        formatItemLabel={
+          formatItemLabel as ((value: WheelPickerItem) => string) | undefined
+        }
         itemTextClassName={itemTextClassName}
         itemHeight={resolvedItemHeight}
         visibleItemCount={resolvedVisibleItemCount}

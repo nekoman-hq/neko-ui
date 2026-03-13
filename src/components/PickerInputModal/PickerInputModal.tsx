@@ -13,6 +13,7 @@ import React, {
   useState,
 } from "react";
 import {
+  Alert,
   Keyboard,
   KeyboardEvent,
   Pressable,
@@ -50,6 +51,7 @@ type ParsedInput = AnyInputProps & {
 type ParsedGroup = Omit<PickerInputModalInputGroupProps, "children"> & {
   id: string;
   inputs: ParsedInput[];
+  isInputGroup: boolean;
 };
 
 type ParsedContent = Omit<PickerInputModalContentProps, "children"> & {
@@ -258,6 +260,7 @@ function parseGroups(
       if (inputs.length > 0) {
         groups.push({
           id: createNodeId("group", currentPath, child.key?.toString()),
+          className: child.props.className,
           label: child.props.label,
           disabled: child.props.disabled,
           textInputValue: child.props.textInputValue,
@@ -267,6 +270,7 @@ function parseGroups(
           inputMode: child.props.inputMode,
           maxLength: child.props.maxLength,
           inputs,
+          isInputGroup: true,
         });
       }
 
@@ -285,6 +289,7 @@ function parseGroups(
           id: createNodeId("input", currentPath, child.key?.toString()),
         },
       ],
+      isInputGroup: false,
     });
   });
 
@@ -471,6 +476,14 @@ function hasSharedTextField(group: ParsedGroup) {
     group.maxLength !== undefined ||
     group.label !== undefined
   );
+}
+
+function getGroupPickerContainerClassName(group: ParsedGroup) {
+  if (group.isInputGroup) {
+    return group.className;
+  }
+
+  return group.inputs[0]?.pickerContainerClassName;
 }
 
 const PickerInputModalRoot = React.forwardRef<
@@ -808,11 +821,17 @@ const PickerInputModalRoot = React.forwardRef<
         }}
       >
         {groups.map((group) => (
-          <View key={group.id} className={"min-w-0 flex-1 flex-row gap-3"}>
+          <View
+            key={group.id}
+            className={clsx(
+              "min-w-0 flex-1 flex-row gap-3",
+              getGroupPickerContainerClassName(group),
+            )}
+          >
             {group.inputs.map((input) => (
               <View
                 key={input.id}
-                className={"h-[180px] flex-1 justify-end align-bottom "}
+                className={clsx("h-[180px] flex-1 justify-end align-bottom")}
               >
                 <PickerInputModalWheelMeasurement input={input} />
               </View>
@@ -1076,10 +1095,19 @@ const PickerInputModalRoot = React.forwardRef<
               {groups.map((group) => (
                 <View
                   key={group.id}
-                  className={clsx("min-w-0 flex-1 flex-row gap-3")}
+                  className={clsx(
+                    "min-w-0 flex-1 flex-row gap-3",
+                    getGroupPickerContainerClassName(group),
+                  )}
                 >
                   {group.inputs.map((input) => (
-                    <View key={input.id} className={"h-[180px] flex-1 "}>
+                    <View
+                      key={input.id}
+                      className={clsx(
+                        "h-[180px]",
+                        input.pickerContainerClassName,
+                      )}
+                    >
                       <PickerInputModalWheel input={input} />
                     </View>
                   ))}

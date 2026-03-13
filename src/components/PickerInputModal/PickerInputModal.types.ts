@@ -31,8 +31,10 @@ export interface PickerInputModalInputProps<
   onTextInputValueChange?: (value: string) => void;
   pickerItemHeight?: number;
   pickerVisibleItemCount?: number;
+  pickerWidth?: number;
 
   pickerClassName?: string;
+  pickerContainerClassName?: string;
   pickerItemTextClassName?: string;
   pickerLabelClassName?: string;
 
@@ -42,6 +44,7 @@ export interface PickerInputModalInputProps<
 
 export interface PickerInputModalInputGroupProps {
   children?: React.ReactNode;
+  className?: string;
   label?: string;
   disabled?: boolean;
   textInputValue?: string;

@@ -165,6 +165,7 @@ export const GroupedDecimal = {
               setWeightQuarter(nearestQuarter);
             }}
             textInputValue={weightTextValue}
+            className={"!bg-blue-600"}
           >
             <PickerInputModalInput
               value={weight}
@@ -184,10 +185,57 @@ export const GroupedDecimal = {
 
           <PickerInputModalInput
             value={reps}
+            pickerWidth={100}
             onValueChange={setReps}
             data={repsData}
             keyboardType={"numeric"}
             label={"reps"}
+            pickerContainerClassName="flex-none w-[100px] h-[180px] !bg-amber-500"
+          />
+        </PickerInputModal>
+      </StoryFrame>
+    );
+  },
+};
+
+export const CustomPickerContainers = {
+  render: () => {
+    const [weight, setWeight] = useState(10);
+    const [weightQuarter, setWeightQuarter] = useState(0.25);
+    const [reps, setReps] = useState(12);
+
+    return (
+      <StoryFrame>
+        <PickerInputModal>
+          <PickerInputModalInputGroup
+            className={"rounded-[20px] bg-card/40 p-3"}
+            label={"kg"}
+          >
+            <PickerInputModalInput
+              value={weight}
+              onValueChange={setWeight}
+              data={wholeNumberData}
+              label={"kg"}
+              pickerContainerClassName={"rounded-[16px] bg-card/70 px-2"}
+            />
+
+            <PickerInputModalInput
+              value={weightQuarter}
+              onValueChange={setWeightQuarter}
+              data={quarterData}
+              label={"fr"}
+              pickerContainerClassName={"rounded-[16px] bg-card/70 px-2"}
+              textInput={false}
+            />
+          </PickerInputModalInputGroup>
+
+          <PickerInputModalInput
+            value={reps}
+            onValueChange={setReps}
+            data={repsData}
+            keyboardType={"numeric"}
+            label={"reps"}
+            pickerContainerClassName={"rounded-[20px] bg-card/50 p-3"}
           />
         </PickerInputModal>
       </StoryFrame>

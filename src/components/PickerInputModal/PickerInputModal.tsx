@@ -24,7 +24,6 @@ import {
 import Animated, {
   KeyboardState,
   interpolate,
-  useAnimatedKeyboard,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -41,6 +40,7 @@ import type {
   PickerInputModalRef,
   PickerInputModalValue,
 } from "./PickerInputModal.types";
+import { useAnimatedKeyboard } from "react-native-keyboard-controller";
 
 type AnyInputProps = PickerInputModalInputProps<PickerInputModalValue>;
 
@@ -373,7 +373,7 @@ function usePickerWheelProps(input: ParsedInput) {
       className: clsx("flex-1 justify-center h-[200px]", pickerClassName),
       data: pickerData,
       formatItemLabel,
-      itemHeight: pickerItemHeight ?? 45,
+      itemHeight: pickerItemHeight ?? 50,
       itemTextClassName: pickerItemTextClassName,
       label,
       labelClassName: pickerLabelClassName,
@@ -486,6 +486,30 @@ function getInputGroupClassName(group: ParsedGroup) {
   return group.className;
 }
 
+function PickerInputModalFooterContent({
+  bottom,
+  children,
+  className,
+  onHeightChange,
+}: {
+  bottom: number;
+  children?: React.ReactNode;
+  className?: string;
+  onHeightChange(nextHeight: number): void;
+}) {
+  return (
+    <View
+      className={clsx("bg-background px-5 pt-1.5", className)}
+      onLayout={(event) => {
+        onHeightChange(event.nativeEvent.layout.height);
+      }}
+      style={{ paddingBottom: bottom }}
+    >
+      {children}
+    </View>
+  );
+}
+
 const PickerInputModalRoot = React.forwardRef<
   PickerInputModalRef,
   PickerInputModalProps
@@ -495,6 +519,7 @@ const PickerInputModalRoot = React.forwardRef<
 
   const groups = useMemo(() => parseGroups(children), [children]);
   const content = useMemo(() => parseContent(children), [children]);
+
   const [collapsedHeight, setCollapsedHeight] = useState(0);
   const [pickerHeight, setPickerHeight] = useState(0);
   const [footerHeight, setFooterHeight] = useState(0);
@@ -507,6 +532,7 @@ const PickerInputModalRoot = React.forwardRef<
 
   const animatedIndex = useSharedValue(0);
   const bottomSheetRef = useRef<PickerInputModalRef | null>(null);
+  const contentRef = useRef<ParsedContent | null>(content);
   const keyboardHeightRef = useRef(0);
   const keyboardHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -514,6 +540,8 @@ const PickerInputModalRoot = React.forwardRef<
   const pickerOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+
+  contentRef.current = content;
 
   const assignBottomSheetRef = useCallback(
     (instance: PickerInputModalRef | null) => {
@@ -549,7 +577,7 @@ const PickerInputModalRoot = React.forwardRef<
     pickerOpenTimeoutRef.current = null;
   }, []);
 
-  const sheetBottomSpacing = content ? 0 : bottom;
+  const sheetBottomSpacing = 20 + (content ? 0 : bottom);
   const collapsedBaseHeight =
     collapsedHeight > 0
       ? collapsedHeight + HANDLE_AND_PADDING + footerHeight
@@ -725,38 +753,39 @@ const PickerInputModalRoot = React.forwardRef<
     };
   }, [clearKeyboardHideTimeout, clearPickerOpenTimeout, expandForKeyboard]);
 
-  const handleFooterLayout = useCallback(
-    (nextHeight: number) => {
-      if (nextHeight > 0 && nextHeight !== footerHeight) {
-        setFooterHeight(nextHeight);
-      }
-    },
-    [footerHeight],
-  );
+  const handleFooterLayout = useCallback((nextHeight: number) => {
+    if (nextHeight <= 0) {
+      return;
+    }
+
+    setFooterHeight((currentHeight) =>
+      currentHeight === nextHeight ? currentHeight : nextHeight,
+    );
+  }, []);
 
   const renderFooter = useCallback(
     ({ animatedFooterPosition }: BottomSheetFooterProps) => {
-      if (!content) {
+      const currentContent = contentRef.current;
+
+      if (!currentContent) {
         return null;
       }
 
       return (
         <BottomSheetFooter animatedFooterPosition={animatedFooterPosition}>
           <Animated.View style={footerAnimatedStyle}>
-            <View
-              className={clsx("bg-background px-5 pt-1.5", content.className)}
-              onLayout={(event) => {
-                handleFooterLayout(event.nativeEvent.layout.height);
-              }}
-              style={{ paddingBottom: bottom }}
+            <PickerInputModalFooterContent
+              bottom={bottom}
+              className={currentContent.className}
+              onHeightChange={handleFooterLayout}
             >
-              {content.children}
-            </View>
+              {currentContent.children}
+            </PickerInputModalFooterContent>
           </Animated.View>
         </BottomSheetFooter>
       );
     },
-    [bottom, content, footerAnimatedStyle, handleFooterLayout],
+    [bottom, footerAnimatedStyle, handleFooterLayout],
   );
 
   const renderMeasurement = () => (
@@ -908,7 +937,7 @@ const PickerInputModalRoot = React.forwardRef<
       index={0}
       keyboardBehavior={"interactive"}
       backgroundStyle={SHEET_BACKGROUND_STYLE}
-      footerComponent={content ? renderFooter : undefined}
+      footerComponent={renderFooter}
       ref={assignBottomSheetRef}
       snapPoints={snapPoints}
       style={BOTTOM_SHEET_STYLE}

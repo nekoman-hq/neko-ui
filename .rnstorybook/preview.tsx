@@ -1,5 +1,6 @@
 import type { Preview } from "@storybook/react-native";
 import { View } from "react-native";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { spyOn } from "storybook/test";
 
 export const beforeEach = () => {
@@ -19,10 +20,12 @@ const preview: Preview = {
   tags: ["autodocs"],
   decorators: [
     (Story) => (
-      // @ts-ignore
-      <View className={"bg-background w-full h-full"}>
-        <Story />
-      </View>
+      <KeyboardProvider>
+        {/* @ts-ignore */}
+        <View className={"bg-background w-full h-full"}>
+          <Story />
+        </View>
+      </KeyboardProvider>
     ),
   ],
 };

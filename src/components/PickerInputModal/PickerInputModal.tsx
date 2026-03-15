@@ -888,14 +888,15 @@ const PickerInputModalRoot = React.forwardRef<
       pendingTextSnapIndexRef.current,
       snapPoints.length - 1,
     );
-    const targetSnapPoint = snapPoints[targetIndex];
-
-    if (targetSnapPoint === undefined) {
+    if (snapPoints[targetIndex] === undefined) {
       return;
     }
 
     pendingTextSnapIndexRef.current = null;
-    bottomSheetRef.current?.snapToPosition(targetSnapPoint);
+
+    // Restore to a real snap index after the keyboard closes so the bottom
+    // sheet's internal index stays in sync with the visible position.
+    bottomSheetRef.current?.snapToIndex(targetIndex);
   }, [keyboardVisible, snapPoints]);
 
   const handleContentAreaLayout = useCallback((nextHeight: number) => {

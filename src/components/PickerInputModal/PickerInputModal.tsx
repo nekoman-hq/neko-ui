@@ -13,7 +13,6 @@ import React, {
   useState,
 } from "react";
 import {
-  Alert,
   Keyboard,
   KeyboardEvent,
   Pressable,
@@ -486,7 +485,7 @@ function getInputGroupClassName(group: ParsedGroup) {
   return group.className;
 }
 
-function PickerInputModalFooterContent({
+function PickerInputModalContentContainer({
   bottom,
   children,
   className,
@@ -495,13 +494,13 @@ function PickerInputModalFooterContent({
   bottom: number;
   children?: React.ReactNode;
   className?: string;
-  onHeightChange(nextHeight: number): void;
+  onHeightChange?: (nextHeight: number) => void;
 }) {
   return (
     <View
-      className={clsx("bg-background px-5 pt-1.5", className)}
+      className={clsx("w-full bg-background px-5 pt-1.5", className)}
       onLayout={(event) => {
-        onHeightChange(event.nativeEvent.layout.height);
+        onHeightChange?.(event.nativeEvent.layout.height);
       }}
       style={{ paddingBottom: bottom }}
     >
@@ -510,10 +509,59 @@ function PickerInputModalFooterContent({
   );
 }
 
+function PickerInputModalFooter({
+  animatedFooterPosition,
+  bottom,
+  children,
+  className,
+  collapsedHeight,
+  enableSnapFlowReveal,
+  onHeightChange,
+  style,
+}: {
+  animatedFooterPosition: BottomSheetFooterProps["animatedFooterPosition"];
+  bottom: number;
+  children?: React.ReactNode;
+  className?: string;
+  collapsedHeight: number;
+  enableSnapFlowReveal: boolean;
+  onHeightChange(nextHeight: number): void;
+  style?: object;
+}) {
+  const footerRevealAnimatedStyle = useAnimatedStyle(() => {
+    const footerTop = Math.max(animatedFooterPosition.value, 0);
+    const correction = enableSnapFlowReveal
+      ? Math.max(collapsedHeight - footerTop + 8, 0)
+      : 0;
+
+    return {
+      transform: [
+        {
+          translateY: correction,
+        },
+      ],
+    };
+  }, [animatedFooterPosition, collapsedHeight, enableSnapFlowReveal]);
+
+  return (
+    <BottomSheetFooter animatedFooterPosition={animatedFooterPosition}>
+      <Animated.View style={[style, footerRevealAnimatedStyle]}>
+        <PickerInputModalContentContainer
+          bottom={bottom}
+          className={className}
+          onHeightChange={onHeightChange}
+        >
+          {children}
+        </PickerInputModalContentContainer>
+      </Animated.View>
+    </BottomSheetFooter>
+  );
+}
+
 const PickerInputModalRoot = React.forwardRef<
   PickerInputModalRef,
   PickerInputModalProps
->(({ children }, ref) => {
+>(({ children, enableContentSnapFlow }, ref) => {
   const { bottom } = useSafeAreaInsets();
   const { state } = useAnimatedKeyboard();
 
@@ -522,7 +570,7 @@ const PickerInputModalRoot = React.forwardRef<
 
   const [collapsedHeight, setCollapsedHeight] = useState(0);
   const [pickerHeight, setPickerHeight] = useState(0);
-  const [footerHeight, setFooterHeight] = useState(0);
+  const [contentAreaHeight, setContentAreaHeight] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [pickerInteractive, setPickerInteractive] = useState(true);
   const [textDrafts, setTextDrafts] = useState<Record<string, string>>({});
@@ -540,6 +588,8 @@ const PickerInputModalRoot = React.forwardRef<
   const pickerOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const lastTextSnapIndexRef = useRef(0);
+  const pendingTextSnapIndexRef = useRef<number | null>(null);
 
   contentRef.current = content;
 
@@ -577,19 +627,51 @@ const PickerInputModalRoot = React.forwardRef<
     pickerOpenTimeoutRef.current = null;
   }, []);
 
-  const sheetBottomSpacing = 20 + (content ? 0 : bottom);
-  const collapsedBaseHeight =
-    collapsedHeight > 0
-      ? collapsedHeight + HANDLE_AND_PADDING + footerHeight
+  const contentParticipatesInSnapFlow = Boolean(
+    enableContentSnapFlow && content,
+  );
+  const textOnlyBaseHeight =
+    collapsedHeight > 0 ? collapsedHeight + HANDLE_AND_PADDING : 0;
+  const pickerBaseHeight =
+    pickerHeight > 0 ? pickerHeight + HANDLE_AND_PADDING : textOnlyBaseHeight;
+  const textOnlySnapPoint =
+    textOnlyBaseHeight > 0 ? textOnlyBaseHeight + bottom + 20 : 0;
+  const collapsedSnapPoint =
+    textOnlyBaseHeight > 0
+      ? textOnlyBaseHeight + (content ? contentAreaHeight : bottom)
       : 0;
-  const expandedBaseHeight =
-    pickerHeight > 0
-      ? pickerHeight + HANDLE_AND_PADDING + footerHeight
-      : collapsedBaseHeight;
-  const collapsedSnapPoint = collapsedBaseHeight + sheetBottomSpacing;
-  const expandedSnapPoint = expandedBaseHeight + sheetBottomSpacing;
+  const expandedSnapPoint =
+    pickerBaseHeight > 0
+      ? pickerBaseHeight + (content ? contentAreaHeight : bottom)
+      : collapsedSnapPoint;
+  const pickerTransitionStartIndex = contentParticipatesInSnapFlow ? 1 : 0;
+  const pickerTransitionEndIndex = contentParticipatesInSnapFlow ? 2 : 1;
+  const maxTextSnapIndex = contentParticipatesInSnapFlow ? 1 : 0;
+  const pickerSnapIndex = contentParticipatesInSnapFlow ? 2 : 1;
 
   const snapPoints = useMemo(() => {
+    if (contentParticipatesInSnapFlow) {
+      if (textOnlySnapPoint <= 0) {
+        return [];
+      }
+
+      if (keyboardVisible) {
+        return [textOnlySnapPoint];
+      }
+
+      const nextSnapPoints = [textOnlySnapPoint];
+
+      if (collapsedSnapPoint > textOnlySnapPoint) {
+        nextSnapPoints.push(collapsedSnapPoint);
+      }
+
+      if (expandedSnapPoint > nextSnapPoints[nextSnapPoints.length - 1]) {
+        nextSnapPoints.push(expandedSnapPoint);
+      }
+
+      return nextSnapPoints;
+    }
+
     if (collapsedSnapPoint <= 0) {
       return [];
     }
@@ -603,7 +685,13 @@ const PickerInputModalRoot = React.forwardRef<
     }
 
     return [collapsedSnapPoint, expandedSnapPoint];
-  }, [collapsedSnapPoint, expandedSnapPoint, keyboardVisible]);
+  }, [
+    collapsedSnapPoint,
+    contentParticipatesInSnapFlow,
+    expandedSnapPoint,
+    keyboardVisible,
+    textOnlySnapPoint,
+  ]);
 
   const contentHeight = Math.max(collapsedHeight, pickerHeight);
 
@@ -615,7 +703,12 @@ const PickerInputModalRoot = React.forwardRef<
       return { opacity: 1, position: "relative" as const, zIndex: 1 };
     }
 
-    const opacity = interpolate(animatedIndex.value, [0, 1], [1, 0], "clamp");
+    const opacity = interpolate(
+      animatedIndex.value,
+      [pickerTransitionStartIndex, pickerTransitionEndIndex],
+      [1, 0],
+      "clamp",
+    );
 
     return {
       opacity,
@@ -632,7 +725,12 @@ const PickerInputModalRoot = React.forwardRef<
       return { opacity: 0, zIndex: -1 };
     }
 
-    const opacity = interpolate(animatedIndex.value, [0, 1], [0, 1], "clamp");
+    const opacity = interpolate(
+      animatedIndex.value,
+      [pickerTransitionStartIndex, pickerTransitionEndIndex],
+      [0, 1],
+      "clamp",
+    );
     return { opacity, zIndex: opacity === 0 ? -1 : 1 };
   });
 
@@ -676,17 +774,22 @@ const PickerInputModalRoot = React.forwardRef<
     pickerOpenTimeoutRef.current = setTimeout(() => {
       setPickerInteractive(true);
 
+      if (snapPoints.length > pickerSnapIndex) {
+        bottomSheetRef.current?.snapToIndex(pickerSnapIndex);
+        return;
+      }
+
       if (snapPoints.length > 1) {
-        bottomSheetRef.current?.snapToIndex(1);
+        bottomSheetRef.current?.snapToIndex(snapPoints.length - 1);
         return;
       }
 
       bottomSheetRef.current?.expand();
     }, KEYBOARD_OPEN_DELAY);
-  }, [clearPickerOpenTimeout, snapPoints.length]);
+  }, [clearPickerOpenTimeout, pickerSnapIndex, snapPoints.length]);
 
   const expandForKeyboard = useCallback(() => {
-    if (collapsedSnapPoint <= 0) {
+    if (textOnlySnapPoint <= 0) {
       return;
     }
 
@@ -698,7 +801,20 @@ const PickerInputModalRoot = React.forwardRef<
         duration: 300,
       },
     );
-  }, [bottom, collapsedSnapPoint]);
+  }, [bottom, collapsedHeight, textOnlySnapPoint]);
+
+  const handleBottomSheetChange = useCallback(
+    (index: number) => {
+      if (index < 0 || keyboardVisible) {
+        return;
+      }
+
+      if (index <= maxTextSnapIndex) {
+        lastTextSnapIndexRef.current = index;
+      }
+    },
+    [keyboardVisible, maxTextSnapIndex],
+  );
 
   useEffect(() => {
     const handleKeyboardShow = (event: KeyboardEvent) => {
@@ -726,7 +842,11 @@ const PickerInputModalRoot = React.forwardRef<
       expandForKeyboard();
     });
 
-    const keyboardDidHide = Keyboard.addListener("keyboardWillHide", () => {
+    const keyboardWillHide = Keyboard.addListener("keyboardWillHide", () => {
+      pendingTextSnapIndexRef.current = contentParticipatesInSnapFlow
+        ? Math.min(lastTextSnapIndexRef.current, maxTextSnapIndex)
+        : 0;
+
       contentOpacity.value = withTiming(1, {
         duration: 200,
       });
@@ -739,26 +859,46 @@ const PickerInputModalRoot = React.forwardRef<
       }, KEYBOARD_CLOSE_DELAY);
     });
 
-    const keyboardWillHide = Keyboard.addListener("keyboardWillHide", () => {
-      bottomSheetRef.current?.snapToIndex(0);
-    });
-
     return () => {
       clearKeyboardHideTimeout();
       clearPickerOpenTimeout();
       keyboardWillShow.remove();
       keyboardDidShow.remove();
-      keyboardDidHide.remove();
       keyboardWillHide.remove();
     };
-  }, [clearKeyboardHideTimeout, clearPickerOpenTimeout, expandForKeyboard]);
+  }, [
+    clearKeyboardHideTimeout,
+    clearPickerOpenTimeout,
+    contentOpacity,
+    contentParticipatesInSnapFlow,
+    expandForKeyboard,
+    maxTextSnapIndex,
+  ]);
 
-  const handleFooterLayout = useCallback((nextHeight: number) => {
+  useEffect(() => {
+    if (keyboardVisible || pendingTextSnapIndexRef.current === null) {
+      return;
+    }
+
+    if (snapPoints.length === 0) {
+      return;
+    }
+
+    const targetIndex = Math.min(
+      pendingTextSnapIndexRef.current,
+      snapPoints.length - 1,
+    );
+
+    pendingTextSnapIndexRef.current = null;
+    bottomSheetRef.current?.snapToIndex(targetIndex);
+  }, [keyboardVisible, snapPoints]);
+
+  const handleContentAreaLayout = useCallback((nextHeight: number) => {
     if (nextHeight <= 0) {
       return;
     }
 
-    setFooterHeight((currentHeight) =>
+    setContentAreaHeight((currentHeight) =>
       currentHeight === nextHeight ? currentHeight : nextHeight,
     );
   }, []);
@@ -772,20 +912,26 @@ const PickerInputModalRoot = React.forwardRef<
       }
 
       return (
-        <BottomSheetFooter animatedFooterPosition={animatedFooterPosition}>
-          <Animated.View style={footerAnimatedStyle}>
-            <PickerInputModalFooterContent
-              bottom={bottom}
-              className={currentContent.className}
-              onHeightChange={handleFooterLayout}
-            >
-              {currentContent.children}
-            </PickerInputModalFooterContent>
-          </Animated.View>
-        </BottomSheetFooter>
+        <PickerInputModalFooter
+          animatedFooterPosition={animatedFooterPosition}
+          bottom={bottom}
+          className={currentContent.className}
+          collapsedHeight={collapsedHeight}
+          enableSnapFlowReveal={contentParticipatesInSnapFlow}
+          onHeightChange={handleContentAreaLayout}
+          style={footerAnimatedStyle}
+        >
+          {currentContent.children}
+        </PickerInputModalFooter>
       );
     },
-    [bottom, footerAnimatedStyle, handleFooterLayout],
+    [
+      bottom,
+      collapsedHeight,
+      contentParticipatesInSnapFlow,
+      footerAnimatedStyle,
+      handleContentAreaLayout,
+    ],
   );
 
   const renderMeasurement = () => (
@@ -895,15 +1041,13 @@ const PickerInputModalRoot = React.forwardRef<
       </View>
 
       {content ? (
-        <View
-          className={clsx("w-full bg-background px-5", content.className)}
-          onLayout={(event) => {
-            handleFooterLayout(event.nativeEvent.layout.height);
-          }}
-          style={{ paddingBottom: bottom }}
+        <PickerInputModalContentContainer
+          bottom={bottom}
+          className={content.className}
+          onHeightChange={handleContentAreaLayout}
         >
           {content.children}
-        </View>
+        </PickerInputModalContentContainer>
       ) : null}
     </View>
   );
@@ -912,10 +1056,254 @@ const PickerInputModalRoot = React.forwardRef<
     groups.length === 0 ||
     snapPoints.length === 0 ||
     contentHeight === 0 ||
-    (content && footerHeight === 0)
+    (content && contentAreaHeight === 0)
   ) {
     return renderMeasurement();
   }
+
+  const mainSheetContent = (
+    <View
+      className={"relative w-full bg-background"}
+      style={{ minHeight: contentHeight }}
+    >
+      <Animated.View
+        className={"w-full flex-row items-start gap-3"}
+        onLayout={(event) => {
+          const nextHeight = event.nativeEvent.layout.height;
+          if (nextHeight > 0 && nextHeight !== collapsedHeight) {
+            setCollapsedHeight(nextHeight);
+          }
+        }}
+        style={[firstViewAnimatedStyle]}
+      >
+        {groups.map((group) => {
+          const visibleInputs = group.inputs.filter(
+            (input) => input.textInput !== false,
+          );
+          const renderSharedField = hasSharedTextField(group);
+          const sourceInput = visibleInputs[0];
+          const sharedFieldId = `${group.id}-text-input`;
+
+          const renderTextField = (
+            id: string,
+            value: string,
+            onChangeText: (value: string) => void,
+            label?: string,
+            placeholder?: string,
+            maxLength?: number,
+            keyboardType?: AnyInputProps["keyboardType"],
+            inputMode?: AnyInputProps["inputMode"],
+            fallbackValue?: PickerInputModalValue,
+            disabled?: boolean,
+          ) => {
+            const displayValue =
+              focusedTextFieldId === id && textDrafts[id] !== undefined
+                ? textDrafts[id]
+                : value;
+
+            const inputField = (
+              <View
+                className={
+                  "relative  min-h-16 flex-1 flex-row items-center justify-center rounded-[15px] border border-card bg-background px-[15px]"
+                }
+              >
+                <ReactNativeTextInput
+                  className={
+                    "flex-1 px-0 py-3.5 leading-[20px] text-center text-xl font-semibold color-foreground"
+                  }
+                  editable={!disabled}
+                  inputMode={inputMode}
+                  keyboardType={
+                    keyboardType ??
+                    (typeof fallbackValue === "number" ? "numeric" : "default")
+                  }
+                  maxLength={maxLength}
+                  onBlur={() => {
+                    clearTextDraft(id);
+                    setFocusedTextFieldId((currentId) =>
+                      currentId === id ? null : currentId,
+                    );
+                  }}
+                  onChangeText={(nextValue) => {
+                    setTextDraft(id, nextValue);
+                    onChangeText(nextValue);
+                  }}
+                  onFocus={() => {
+                    setFocusedTextFieldId(id);
+                    setTextDraft(id, value);
+                  }}
+                  placeholder={placeholder}
+                  placeholderTextColor={"#6b7280"}
+                  pointerEvents={disabled ? "none" : "auto"}
+                  selectTextOnFocus={!disabled}
+                  showSoftInputOnFocus={!disabled}
+                  value={displayValue}
+                />
+
+                {label &&
+                  (disabled ? (
+                    <View
+                      className={
+                        "absolute bottom-0 right-4 top-0 justify-center"
+                      }
+                      pointerEvents={"none"}
+                    >
+                      <Text
+                        className={clsx(
+                          "text-xl leading-[20px] font-semibold text-foreground",
+                        )}
+                        numberOfLines={1}
+                      >
+                        {label}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      className={
+                        "absolute bottom-0 right-4 top-0 justify-center"
+                      }
+                      onPress={openPickerView}
+                    >
+                      <Text
+                        className={clsx(
+                          "text-xl leading-[20px] font-semibold text-foreground",
+                        )}
+                        numberOfLines={1}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  ))}
+              </View>
+            );
+
+            return (
+              <View key={id} className={"w-full items-center justify-center"}>
+                {disabled ? (
+                  <Pressable className={"w-full"} onPress={openPickerView}>
+                    {inputField}
+                  </Pressable>
+                ) : (
+                  inputField
+                )}
+              </View>
+            );
+          };
+
+          if (renderSharedField) {
+            const sharedValue =
+              group.textInputValue ??
+              (sourceInput ? formatInputValue(sourceInput) : "");
+
+            return (
+              <View key={group.id} className={"min-w-0 flex-1 gap-3"}>
+                {renderTextField(
+                  sharedFieldId,
+                  sharedValue,
+                  (nextValue) => {
+                    if (group.onTextInputValueChange) {
+                      group.onTextInputValueChange(nextValue);
+                      return;
+                    }
+
+                    if (sourceInput) {
+                      parseInputValue(sourceInput, nextValue);
+                    }
+                  },
+                  group.label ?? sourceInput?.label,
+                  group.placeholder ?? sourceInput?.placeholder,
+                  group.maxLength ?? sourceInput?.maxLength,
+                  group.keyboardType ?? sourceInput?.keyboardType,
+                  group.inputMode ?? sourceInput?.inputMode,
+                  sourceInput?.value,
+                  group.disabled ?? sourceInput?.disabled,
+                )}
+              </View>
+            );
+          }
+
+          return (
+            <View key={group.id} className={"min-w-0 flex-1 gap-3"}>
+              {visibleInputs.map((input) =>
+                renderTextField(
+                  input.id,
+                  formatInputValue(input),
+                  (nextValue) => parseInputValue(input, nextValue),
+                  input.label,
+                  input.placeholder,
+                  input.maxLength,
+                  input.keyboardType,
+                  input.inputMode,
+                  input.value,
+                  input.disabled,
+                ),
+              )}
+            </View>
+          );
+        })}
+      </Animated.View>
+
+      {pickerInteractive && (
+        <Animated.View
+          className={
+            "absolute left-0 right-0 top-0 flex-row justify-evenly gap-3"
+          }
+          onLayout={(event) => {
+            const nextHeight = event.nativeEvent.layout.height;
+            if (nextHeight > 0 && nextHeight !== pickerHeight) {
+              setPickerHeight(nextHeight);
+            }
+          }}
+          pointerEvents={pickerInteractive ? "auto" : "none"}
+          style={[secondViewAnimatedStyle]}
+        >
+          {groups.map((group) => {
+            if (!group.isInputGroup) {
+              const input = group.inputs[0];
+
+              if (!input) {
+                return null;
+              }
+
+              return (
+                <View
+                  key={group.id}
+                  className={clsx(
+                    "min-w-0 h-[180px]",
+                    input.pickerContainerClassName,
+                  )}
+                >
+                  <PickerInputModalWheel input={input} />
+                </View>
+              );
+            }
+
+            return (
+              <View
+                key={group.id}
+                className={clsx(
+                  "min-w-0 flex-row gap-3",
+                  getInputGroupClassName(group),
+                )}
+              >
+                {group.inputs.map((input) => (
+                  <View
+                    key={input.id}
+                    className={clsx(
+                      "h-[180px]",
+                      input.pickerContainerClassName,
+                    )}
+                  >
+                    <PickerInputModalWheel input={input} />
+                  </View>
+                ))}
+              </View>
+            );
+          })}
+        </Animated.View>
+      )}
+    </View>
+  );
 
   return (
     <BottomSheet
@@ -938,6 +1326,7 @@ const PickerInputModalRoot = React.forwardRef<
       keyboardBehavior={"interactive"}
       backgroundStyle={SHEET_BACKGROUND_STYLE}
       footerComponent={renderFooter}
+      onChange={handleBottomSheetChange}
       ref={assignBottomSheetRef}
       snapPoints={snapPoints}
       style={BOTTOM_SHEET_STYLE}
@@ -946,252 +1335,7 @@ const PickerInputModalRoot = React.forwardRef<
         className={"w-full items-center bg-background px-5 pb-4"}
         enableFooterMarginAdjustment={Boolean(content)}
       >
-        <View
-          className={"relative w-full bg-background"}
-          style={{ minHeight: contentHeight }}
-        >
-          <Animated.View
-            className={"w-full flex-row items-start gap-3"}
-            onLayout={(event) => {
-              const nextHeight = event.nativeEvent.layout.height;
-              if (nextHeight > 0 && nextHeight !== collapsedHeight) {
-                setCollapsedHeight(nextHeight);
-              }
-            }}
-            style={[firstViewAnimatedStyle]}
-          >
-            {groups.map((group) => {
-              const visibleInputs = group.inputs.filter(
-                (input) => input.textInput !== false,
-              );
-              const renderSharedField = hasSharedTextField(group);
-              const sourceInput = visibleInputs[0];
-              const sharedFieldId = `${group.id}-text-input`;
-
-              const renderTextField = (
-                id: string,
-                value: string,
-                onChangeText: (value: string) => void,
-                label?: string,
-                placeholder?: string,
-                maxLength?: number,
-                keyboardType?: AnyInputProps["keyboardType"],
-                inputMode?: AnyInputProps["inputMode"],
-                fallbackValue?: PickerInputModalValue,
-                disabled?: boolean,
-              ) => {
-                const displayValue =
-                  focusedTextFieldId === id && textDrafts[id] !== undefined
-                    ? textDrafts[id]
-                    : value;
-
-                const inputField = (
-                  <View
-                    className={
-                      "relative  min-h-16 flex-1 flex-row items-center justify-center rounded-[15px] border border-card bg-background px-[15px]"
-                    }
-                  >
-                    <ReactNativeTextInput
-                      className={
-                        "flex-1 px-0 py-3.5 leading-[20px] text-center text-xl font-semibold color-foreground"
-                      }
-                      editable={!disabled}
-                      inputMode={inputMode}
-                      keyboardType={
-                        keyboardType ??
-                        (typeof fallbackValue === "number"
-                          ? "numeric"
-                          : "default")
-                      }
-                      maxLength={maxLength}
-                      onBlur={() => {
-                        clearTextDraft(id);
-                        setFocusedTextFieldId((currentId) =>
-                          currentId === id ? null : currentId,
-                        );
-                      }}
-                      onChangeText={(nextValue) => {
-                        setTextDraft(id, nextValue);
-                        onChangeText(nextValue);
-                      }}
-                      onFocus={() => {
-                        setFocusedTextFieldId(id);
-                        setTextDraft(id, value);
-                      }}
-                      placeholder={placeholder}
-                      placeholderTextColor={"#6b7280"}
-                      pointerEvents={disabled ? "none" : "auto"}
-                      selectTextOnFocus={!disabled}
-                      showSoftInputOnFocus={!disabled}
-                      value={displayValue}
-                    />
-
-                    {label &&
-                      (disabled ? (
-                        <View
-                          className={
-                            "absolute bottom-0 right-4 top-0 justify-center"
-                          }
-                          pointerEvents={"none"}
-                        >
-                          <Text
-                            className={clsx(
-                              "text-xl leading-[20px] font-semibold text-foreground",
-                            )}
-                            numberOfLines={1}
-                          >
-                            {label}
-                          </Text>
-                        </View>
-                      ) : (
-                        <Pressable
-                          className={
-                            "absolute bottom-0 right-4 top-0 justify-center"
-                          }
-                          onPress={openPickerView}
-                        >
-                          <Text
-                            className={clsx(
-                              "text-xl leading-[20px] font-semibold text-foreground",
-                            )}
-                            numberOfLines={1}
-                          >
-                            {label}
-                          </Text>
-                        </Pressable>
-                      ))}
-                  </View>
-                );
-
-                return (
-                  <View
-                    key={id}
-                    className={"w-full items-center justify-center"}
-                  >
-                    {disabled ? (
-                      <Pressable className={"w-full"} onPress={openPickerView}>
-                        {inputField}
-                      </Pressable>
-                    ) : (
-                      inputField
-                    )}
-                  </View>
-                );
-              };
-
-              if (renderSharedField) {
-                const sharedValue =
-                  group.textInputValue ??
-                  (sourceInput ? formatInputValue(sourceInput) : "");
-
-                return (
-                  <View key={group.id} className={"min-w-0 flex-1 gap-3"}>
-                    {renderTextField(
-                      sharedFieldId,
-                      sharedValue,
-                      (nextValue) => {
-                        if (group.onTextInputValueChange) {
-                          group.onTextInputValueChange(nextValue);
-                          return;
-                        }
-
-                        if (sourceInput) {
-                          parseInputValue(sourceInput, nextValue);
-                        }
-                      },
-                      group.label ?? sourceInput?.label,
-                      group.placeholder ?? sourceInput?.placeholder,
-                      group.maxLength ?? sourceInput?.maxLength,
-                      group.keyboardType ?? sourceInput?.keyboardType,
-                      group.inputMode ?? sourceInput?.inputMode,
-                      sourceInput?.value,
-                      group.disabled ?? sourceInput?.disabled,
-                    )}
-                  </View>
-                );
-              }
-
-              return (
-                <View key={group.id} className={"min-w-0 flex-1 gap-3"}>
-                  {visibleInputs.map((input) =>
-                    renderTextField(
-                      input.id,
-                      formatInputValue(input),
-                      (nextValue) => parseInputValue(input, nextValue),
-                      input.label,
-                      input.placeholder,
-                      input.maxLength,
-                      input.keyboardType,
-                      input.inputMode,
-                      input.value,
-                      input.disabled,
-                    ),
-                  )}
-                </View>
-              );
-            })}
-          </Animated.View>
-
-          {pickerInteractive && (
-            <Animated.View
-              className={
-                "absolute left-0 right-0 top-0 flex-row justify-evenly gap-3"
-              }
-              onLayout={(event) => {
-                const nextHeight = event.nativeEvent.layout.height;
-                if (nextHeight > 0 && nextHeight !== pickerHeight) {
-                  setPickerHeight(nextHeight);
-                }
-              }}
-              pointerEvents={pickerInteractive ? "auto" : "none"}
-              style={[secondViewAnimatedStyle]}
-            >
-              {groups.map((group) => {
-                if (!group.isInputGroup) {
-                  const input = group.inputs[0];
-
-                  if (!input) {
-                    return null;
-                  }
-
-                  return (
-                    <View
-                      key={group.id}
-                      className={clsx(
-                        "min-w-0 h-[180px]",
-                        input.pickerContainerClassName,
-                      )}
-                    >
-                      <PickerInputModalWheel input={input} />
-                    </View>
-                  );
-                }
-
-                return (
-                  <View
-                    key={group.id}
-                    className={clsx(
-                      "min-w-0 flex-row gap-3",
-                      getInputGroupClassName(group),
-                    )}
-                  >
-                    {group.inputs.map((input) => (
-                      <View
-                        key={input.id}
-                        className={clsx(
-                          "h-[180px]",
-                          input.pickerContainerClassName,
-                        )}
-                      >
-                        <PickerInputModalWheel input={input} />
-                      </View>
-                    ))}
-                  </View>
-                );
-              })}
-            </Animated.View>
-          )}
-        </View>
+        {mainSheetContent}
       </BottomSheetView>
     </BottomSheet>
   );

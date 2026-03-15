@@ -294,3 +294,56 @@ export const WithContent = {
     );
   },
 };
+
+export const WithContentInSnapFlow = {
+  render: () => {
+    const [weight, setWeight] = useState(10);
+    const [reps, setReps] = useState(12);
+
+    return (
+      <StoryFrame>
+        <PickerInputModal enableContentSnapFlow={true}>
+          <PickerInputModalInput
+            value={weight}
+            onValueChange={setWeight}
+            data={wholeNumberData}
+            keyboardType={"numeric"}
+            label={"kg"}
+          />
+
+          <PickerInputModalInput
+            value={reps}
+            onValueChange={setReps}
+            data={repsData}
+            keyboardType={"numeric"}
+            label={"reps"}
+          />
+
+          <PickerInputModalContent className={"gap-3 "}>
+            <View
+              className={
+                "rounded-[20px] border border-card bg-card p-4 py-[100px]"
+              }
+            >
+              <Text className={"text-base font-semibold text-foreground"}>
+                Quick summary
+              </Text>
+              <Text className={"mt-1 text-sm text-muted-foreground"}>
+                {weight} kg x {reps} reps
+              </Text>
+            </View>
+
+            <Button
+              onPress={() => Alert.alert("Saved")}
+              className={"items-center rounded-[20px] bg-foreground p-4"}
+            >
+              <ButtonText className={"text-base font-semibold text-background"}>
+                Save Set
+              </ButtonText>
+            </Button>
+          </PickerInputModalContent>
+        </PickerInputModal>
+      </StoryFrame>
+    );
+  },
+};

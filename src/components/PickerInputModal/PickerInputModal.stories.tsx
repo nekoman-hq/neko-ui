@@ -8,6 +8,7 @@ import {
   PickerInputModalInputGroup,
 } from "./PickerInputModal";
 import { Button, ButtonText } from "../Button";
+import Animated, { FadeInUp } from "react-native-reanimated";
 
 const wholeNumberData = Array.from({ length: 201 }, (_, index) => index);
 const repsData = Array.from({ length: 51 }, (_, index) => index);
@@ -453,9 +454,12 @@ function WithHiddenContentWhenCollapsedStory() {
             <Text className={"text-base font-semibold text-foreground"}>
               Quick summary
             </Text>
-            <Text className={"mt-1 text-sm text-muted-foreground"}>
+            <Animated.Text
+              entering={FadeInUp.duration(700)}
+              className={"mt-1 text-sm text-muted-foreground"}
+            >
               {weight} kg x {reps} reps
-            </Text>
+            </Animated.Text>
           </Pressable>
 
           <Button

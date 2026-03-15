@@ -592,6 +592,12 @@ const PickerInputModalRoot = React.forwardRef<
   const animatedIndex = useSharedValue(0);
   const bottomSheetRef = useRef<PickerInputModalRef | null>(null);
   const contentRef = useRef<ParsedContent | null>(content);
+  const footerPropsRef = useRef({
+    collapsedHeight: 0,
+    enableSnapFlowReveal: false,
+    pointerEvents: "auto" as "auto" | "none",
+    style: undefined as object | undefined,
+  });
   const keyboardHeightRef = useRef(0);
   const keyboardHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -775,6 +781,12 @@ const PickerInputModalRoot = React.forwardRef<
     keyboardVisible || (shouldHideContentWhenCollapsed && sheetIndex <= 0)
       ? "none"
       : "auto";
+  footerPropsRef.current = {
+    collapsedHeight,
+    enableSnapFlowReveal: contentParticipatesInSnapFlow,
+    pointerEvents: contentPointerEvents,
+    style: footerAnimatedStyle,
+  };
 
   const setTextDraft = useCallback((id: string, value: string) => {
     setTextDrafts((currentDrafts) => {
@@ -950,6 +962,7 @@ const PickerInputModalRoot = React.forwardRef<
   const renderFooter = useCallback(
     ({ animatedFooterPosition }: BottomSheetFooterProps) => {
       const currentContent = contentRef.current;
+      const currentFooterProps = footerPropsRef.current;
 
       if (!currentContent) {
         return null;
@@ -960,24 +973,17 @@ const PickerInputModalRoot = React.forwardRef<
           animatedFooterPosition={animatedFooterPosition}
           bottom={bottom}
           className={currentContent.className}
-          collapsedHeight={collapsedHeight}
-          enableSnapFlowReveal={contentParticipatesInSnapFlow}
+          collapsedHeight={currentFooterProps.collapsedHeight}
+          enableSnapFlowReveal={currentFooterProps.enableSnapFlowReveal}
           onHeightChange={handleContentAreaLayout}
-          pointerEvents={contentPointerEvents}
-          style={footerAnimatedStyle}
+          pointerEvents={currentFooterProps.pointerEvents}
+          style={currentFooterProps.style}
         >
           {currentContent.children}
         </PickerInputModalFooter>
       );
     },
-    [
-      bottom,
-      collapsedHeight,
-      contentPointerEvents,
-      contentParticipatesInSnapFlow,
-      footerAnimatedStyle,
-      handleContentAreaLayout,
-    ],
+    [bottom, handleContentAreaLayout],
   );
 
   const renderMeasurement = () => (

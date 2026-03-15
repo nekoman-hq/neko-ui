@@ -63,6 +63,7 @@ export interface PickerInputModalContentProps {
 export interface PickerInputModalProps {
   children?: React.ReactNode;
   enableContentSnapFlow?: boolean;
+  initialContentExpanded?: boolean;
 }
 
 export type PickerInputModalRef = React.ComponentRef<typeof BottomSheet>;

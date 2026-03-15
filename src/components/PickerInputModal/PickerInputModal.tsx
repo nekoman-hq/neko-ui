@@ -561,12 +561,15 @@ function PickerInputModalFooter({
 const PickerInputModalRoot = React.forwardRef<
   PickerInputModalRef,
   PickerInputModalProps
->(({ children, enableContentSnapFlow }, ref) => {
+>(({ children, enableContentSnapFlow, initialContentExpanded }, ref) => {
   const { bottom } = useSafeAreaInsets();
   const { state } = useAnimatedKeyboard();
 
   const groups = useMemo(() => parseGroups(children), [children]);
   const content = useMemo(() => parseContent(children), [children]);
+  const shouldStartWithExpandedContent = Boolean(
+    enableContentSnapFlow && content && initialContentExpanded,
+  );
 
   const [collapsedHeight, setCollapsedHeight] = useState(0);
   const [pickerHeight, setPickerHeight] = useState(0);
@@ -588,7 +591,7 @@ const PickerInputModalRoot = React.forwardRef<
   const pickerOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const lastTextSnapIndexRef = useRef(0);
+  const lastTextSnapIndexRef = useRef(shouldStartWithExpandedContent ? 1 : 0);
   const pendingTextSnapIndexRef = useRef<number | null>(null);
 
   contentRef.current = content;
@@ -703,6 +706,8 @@ const PickerInputModalRoot = React.forwardRef<
   ]);
 
   const contentHeight = Math.max(collapsedHeight, pickerHeight);
+  const initialSheetIndex =
+    shouldStartWithExpandedContent && snapPoints.length > 1 ? 1 : 0;
 
   const firstViewAnimatedStyle = useAnimatedStyle(() => {
     if (
@@ -1337,7 +1342,7 @@ const PickerInputModalRoot = React.forwardRef<
       enableOverDrag={false}
       enablePanDownToClose={false}
       handleIndicatorStyle={HANDLE_INDICATOR_STYLE}
-      index={0}
+      index={initialSheetIndex}
       keyboardBehavior={"interactive"}
       backgroundStyle={SHEET_BACKGROUND_STYLE}
       footerComponent={renderFooter}

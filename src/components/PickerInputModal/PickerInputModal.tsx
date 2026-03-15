@@ -888,9 +888,14 @@ const PickerInputModalRoot = React.forwardRef<
       pendingTextSnapIndexRef.current,
       snapPoints.length - 1,
     );
+    const targetSnapPoint = snapPoints[targetIndex];
+
+    if (targetSnapPoint === undefined) {
+      return;
+    }
 
     pendingTextSnapIndexRef.current = null;
-    bottomSheetRef.current?.snapToIndex(targetIndex);
+    bottomSheetRef.current?.snapToPosition(targetSnapPoint);
   }, [keyboardVisible, snapPoints]);
 
   const handleContentAreaLayout = useCallback((nextHeight: number) => {

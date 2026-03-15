@@ -656,7 +656,16 @@ const PickerInputModalRoot = React.forwardRef<
       }
 
       if (keyboardVisible) {
-        return [textOnlySnapPoint];
+        const nextSnapPoints = [textOnlySnapPoint];
+
+        // Keep the text-state detents available while the keyboard is open so
+        // restoring from the temporary keyboard position never targets an
+        // index that the sheet no longer knows about.
+        if (collapsedSnapPoint > textOnlySnapPoint) {
+          nextSnapPoints.push(collapsedSnapPoint);
+        }
+
+        return nextSnapPoints;
       }
 
       const nextSnapPoints = [textOnlySnapPoint];

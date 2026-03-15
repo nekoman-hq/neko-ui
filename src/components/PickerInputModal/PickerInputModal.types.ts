@@ -58,6 +58,7 @@ export interface PickerInputModalInputGroupProps {
 export interface PickerInputModalContentProps {
   children?: React.ReactNode;
   className?: string;
+  hideWhenCollapsed?: boolean;
 }
 
 export interface PickerInputModalProps {

@@ -3,7 +3,7 @@ import BottomSheet, {
   BottomSheetView,
   type BottomSheetFooterProps,
 } from "@gorhom/bottom-sheet";
-import clsx from "clsx";
+import cn from "clsx";
 import React, {
   RefObject,
   useCallback,
@@ -369,7 +369,7 @@ function usePickerWheelProps(input: ParsedInput) {
 
   return useMemo(
     () => ({
-      className: clsx("flex-1 justify-center h-[200px]", pickerClassName),
+      className: cn("flex-1 justify-center h-[200px]", pickerClassName),
       data: pickerData,
       formatItemLabel,
       itemHeight: pickerItemHeight ?? 50,
@@ -498,7 +498,7 @@ function PickerInputModalContentContainer({
 }) {
   return (
     <View
-      className={clsx("w-full bg-background px-5 pt-1.5", className)}
+      className={cn("w-full bg-background px-5 pt-1.5", className)}
       onLayout={(event) => {
         onHeightChange?.(event.nativeEvent.layout.height);
       }}
@@ -517,6 +517,7 @@ function PickerInputModalFooter({
   collapsedHeight,
   enableSnapFlowReveal,
   onHeightChange,
+  pointerEvents,
   style,
 }: {
   animatedFooterPosition: BottomSheetFooterProps["animatedFooterPosition"];
@@ -526,6 +527,7 @@ function PickerInputModalFooter({
   collapsedHeight: number;
   enableSnapFlowReveal: boolean;
   onHeightChange(nextHeight: number): void;
+  pointerEvents?: "auto" | "none";
   style?: object;
 }) {
   const footerRevealAnimatedStyle = useAnimatedStyle(() => {
@@ -545,7 +547,10 @@ function PickerInputModalFooter({
 
   return (
     <BottomSheetFooter animatedFooterPosition={animatedFooterPosition}>
-      <Animated.View style={[style, footerRevealAnimatedStyle]}>
+      <Animated.View
+        pointerEvents={pointerEvents}
+        style={[style, footerRevealAnimatedStyle]}
+      >
         <PickerInputModalContentContainer
           bottom={bottom}
           className={className}
@@ -576,6 +581,9 @@ const PickerInputModalRoot = React.forwardRef<
   const [contentAreaHeight, setContentAreaHeight] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [pickerInteractive, setPickerInteractive] = useState(true);
+  const [sheetIndex, setSheetIndex] = useState(
+    shouldStartWithExpandedContent ? 1 : 0,
+  );
   const [textDrafts, setTextDrafts] = useState<Record<string, string>>({});
   const [focusedTextFieldId, setFocusedTextFieldId] = useState<string | null>(
     null,
@@ -632,6 +640,9 @@ const PickerInputModalRoot = React.forwardRef<
 
   const contentParticipatesInSnapFlow = Boolean(
     enableContentSnapFlow && content,
+  );
+  const shouldHideContentWhenCollapsed = Boolean(
+    contentParticipatesInSnapFlow && content?.hideWhenCollapsed,
   );
   const textOnlyBaseHeight =
     collapsedHeight > 0 ? collapsedHeight + HANDLE_AND_PADDING : 0;
@@ -751,10 +762,19 @@ const PickerInputModalRoot = React.forwardRef<
   const contentOpacity = useSharedValue(1);
 
   const footerAnimatedStyle = useAnimatedStyle(() => {
+    const snapFlowOpacity = shouldHideContentWhenCollapsed
+      ? interpolate(animatedIndex.value, [0, 1], [0, 1], "clamp")
+      : 1;
+
     return {
-      opacity: contentOpacity.value,
+      opacity: contentOpacity.value * snapFlowOpacity,
     };
-  });
+  }, [animatedIndex, contentOpacity, shouldHideContentWhenCollapsed]);
+
+  const contentPointerEvents =
+    keyboardVisible || (shouldHideContentWhenCollapsed && sheetIndex <= 0)
+      ? "none"
+      : "auto";
 
   const setTextDraft = useCallback((id: string, value: string) => {
     setTextDrafts((currentDrafts) => {
@@ -819,6 +839,10 @@ const PickerInputModalRoot = React.forwardRef<
 
   const handleBottomSheetChange = useCallback(
     (index: number) => {
+      if (index >= 0) {
+        setSheetIndex(index);
+      }
+
       if (index < 0 || keyboardVisible) {
         return;
       }
@@ -939,6 +963,7 @@ const PickerInputModalRoot = React.forwardRef<
           collapsedHeight={collapsedHeight}
           enableSnapFlowReveal={contentParticipatesInSnapFlow}
           onHeightChange={handleContentAreaLayout}
+          pointerEvents={contentPointerEvents}
           style={footerAnimatedStyle}
         >
           {currentContent.children}
@@ -948,6 +973,7 @@ const PickerInputModalRoot = React.forwardRef<
     [
       bottom,
       collapsedHeight,
+      contentPointerEvents,
       contentParticipatesInSnapFlow,
       footerAnimatedStyle,
       handleContentAreaLayout,
@@ -1026,7 +1052,7 @@ const PickerInputModalRoot = React.forwardRef<
             return (
               <View
                 key={group.id}
-                className={clsx(
+                className={cn(
                   "min-w-0 h-[180px] flex-1 justify-end align-bottom",
                   input.pickerContainerClassName,
                 )}
@@ -1039,7 +1065,7 @@ const PickerInputModalRoot = React.forwardRef<
           return (
             <View
               key={group.id}
-              className={clsx(
+              className={cn(
                 "min-w-0 flex-1 flex-row gap-3",
                 getInputGroupClassName(group),
               )}
@@ -1047,7 +1073,7 @@ const PickerInputModalRoot = React.forwardRef<
               {group.inputs.map((input) => (
                 <View
                   key={input.id}
-                  className={clsx(
+                  className={cn(
                     "h-[180px] flex-1 justify-end align-bottom",
                     input.pickerContainerClassName,
                   )}
@@ -1169,7 +1195,7 @@ const PickerInputModalRoot = React.forwardRef<
                       pointerEvents={"none"}
                     >
                       <Text
-                        className={clsx(
+                        className={cn(
                           "text-xl leading-[20px] font-semibold text-foreground",
                         )}
                         numberOfLines={1}
@@ -1185,7 +1211,7 @@ const PickerInputModalRoot = React.forwardRef<
                       onPress={openPickerView}
                     >
                       <Text
-                        className={clsx(
+                        className={cn(
                           "text-xl leading-[20px] font-semibold text-foreground",
                         )}
                         numberOfLines={1}
@@ -1288,7 +1314,7 @@ const PickerInputModalRoot = React.forwardRef<
               return (
                 <View
                   key={group.id}
-                  className={clsx(
+                  className={cn(
                     "min-w-0 h-[180px]",
                     input.pickerContainerClassName,
                   )}
@@ -1301,7 +1327,7 @@ const PickerInputModalRoot = React.forwardRef<
             return (
               <View
                 key={group.id}
-                className={clsx(
+                className={cn(
                   "min-w-0 flex-row gap-3",
                   getInputGroupClassName(group),
                 )}
@@ -1309,7 +1335,7 @@ const PickerInputModalRoot = React.forwardRef<
                 {group.inputs.map((input) => (
                   <View
                     key={input.id}
-                    className={clsx(
+                    className={cn(
                       "h-[180px]",
                       input.pickerContainerClassName,
                     )}

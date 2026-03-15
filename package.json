@@ -1,7 +1,7 @@
 {
   "name": "neko-ui",
   "main": "expo-router/entry",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "bin": {
     "neko-ui": "./cli/index.js"
   },
